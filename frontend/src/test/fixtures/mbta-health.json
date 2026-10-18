@@ -1,0 +1,13 @@
+{
+  "agency_id": "mbta",
+  "generated_at": "2026-10-19T12:00:05Z",
+  "status": "ok",
+  "last_success_at": "2026-10-19T12:00:02Z",
+  "feed_timestamp": "2026-10-19T11:59:51Z",
+  "feed_age_s": 14,
+  "ticks_last_hour": {"ok": 59, "failed": 0, "not_advanced": 1, "expected": 60},
+  "recent_gaps": [
+    {"start": "2026-10-16T06:11:00Z", "end": "2026-10-16T06:19:00Z", "minutes": 8},
+    {"start": "2026-10-13T18:02:00Z", "end": "2026-10-13T18:05:00Z", "minutes": 3}
+  ]
+}

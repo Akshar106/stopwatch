@@ -1,0 +1,117 @@
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.header h1 {
+  margin: 0;
+}
+
+.stopList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: var(--space-1);
+  counter-reset: stop;
+}
+
+.stopButton {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.2rem;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  min-height: 2.75rem;
+}
+
+@media (min-width: 44rem) {
+  .stopButton {
+    grid-template-columns: minmax(0, 1fr) minmax(14rem, 22rem);
+    align-items: center;
+  }
+}
+
+.stopButton:hover {
+  border-color: var(--accent);
+}
+
+.stopSelected {
+  border-color: var(--accent);
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.stopName {
+  font-weight: 600;
+}
+
+.stopStats {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.bar {
+  flex: 0 0 5rem;
+  height: 0.55rem;
+  background: var(--surface-3);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.barFill {
+  display: block;
+  height: 100%;
+  background: var(--ok);
+}
+
+.coverage {
+  margin: 0;
+  max-width: 36rem;
+}
+
+.coverageValue {
+  font-size: 1.1rem;
+}
+
+.coverageValue strong {
+  font-size: 1.6rem;
+}
+
+.meter {
+  position: relative;
+  height: 0.9rem;
+  background: var(--surface-3);
+  border-radius: 999px;
+  margin-bottom: var(--space-2);
+}
+
+.meterFill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--ok);
+}
+
+.meterLow {
+  background: var(--danger);
+}
+
+.meterMark {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: var(--text);
+}

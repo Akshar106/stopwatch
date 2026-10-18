@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Stop-level transit reliability: how late your bus or train really runs, hour by hour, measured from the live feed. Independent, unofficial estimates."
+    />
+    <meta name="theme-color" content="#f6f5f1" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#121315" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link
+      rel="preload"
+      href="/data/v1/manifest.json"
+      as="fetch"
+      type="application/json"
+      crossorigin="anonymous"
+    />
+    <title>Stopwatch — how reliable is your stop?</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>Stopwatch needs JavaScript to search stops and draw reliability charts.</noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

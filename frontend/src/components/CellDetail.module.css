@@ -1,0 +1,11 @@
+.panel {
+  align-self: start;
+}
+
+.panel :global(.stat-grid) {
+  margin-bottom: var(--space-4);
+}
+
+.help {
+  margin-bottom: var(--space-4);
+}

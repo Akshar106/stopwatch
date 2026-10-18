@@ -1,0 +1,36 @@
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 0.9rem;
+  border: 2px solid currentColor;
+}
+
+.statusIcon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.ok {
+  color: var(--ok);
+}
+
+.degraded {
+  color: var(--warning-text);
+  background: var(--warning-bg);
+}
+
+.stale {
+  color: var(--danger);
+}
+
+.unknown {
+  color: var(--text-muted);
+}
+
+.subheading {
+  margin-top: var(--space-5);
+}

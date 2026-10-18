@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "build_id": "20261019T081502Z",
+  "generated_at": "2026-10-19T08:15:02Z",
+  "agencies": [
+    {
+      "id": "mbta",
+      "name": "MBTA",
+      "timezone": "America/New_York",
+      "live_api": "mbta-v3",
+      "window": {"from": "2026-09-21", "to": "2026-10-18", "days": 28},
+      "on_time_definition_s": [-60, 300],
+      "histogram_edges_s": [-60, 60, 180, 300, 600, 1200],
+      "min_samples": 8,
+      "paths": {
+        "stops": "/data/v1/builds/20261019T081502Z/mbta/stops.json",
+        "routes": "/data/v1/builds/20261019T081502Z/mbta/routes.json",
+        "route_template": "/data/v1/builds/20261019T081502Z/mbta/routes/{route_id}.json",
+        "coverage": "/data/v1/builds/20261019T081502Z/mbta/coverage.json",
+        "health": "/data/v1/health/mbta.json",
+        "validation": "/data/v1/validation/mbta.json"
+      }
+    }
+  ]
+}
