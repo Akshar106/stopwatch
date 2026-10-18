@@ -6,12 +6,15 @@ LOCAL_ENV := STOPWATCH_ENV=local LAKE_URL=file://$(ROOT)/.localdata/lake SITE_UR
   DATABASE_URL=postgresql://stopwatch_app:app-local-only@localhost:5433/stopwatch \
   DATABASE_OWNER_URL=postgresql://stopwatch_owner:owner-local-only@localhost:5433/stopwatch
 
-.PHONY: dev down db install lint fmt typecheck test test-unit test-integration migrate seed ingest-once rollup replay record-fixtures
+.PHONY: dev demo stop db install lint fmt typecheck test test-unit test-integration migrate seed ingest-once rollup replay record-fixtures
 
 dev: ## Start the full local stack (db, migrations, api, worker, web) at http://localhost:5173
 	docker compose up --build
 
-down: ## Stop the local stack
+demo: ## Offline demo: same stack, but the worker replays recorded MBTA snapshots (no internet needed)
+	WORKER_MODE=replay docker compose up --build
+
+stop: ## Stop the local stack (make down ENV=... tears down cloud infra)
 	docker compose down
 
 db: ## Start only Postgres (for tests and host-run commands)
