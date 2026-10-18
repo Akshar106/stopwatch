@@ -59,8 +59,9 @@ class FakeFeed:
 @pytest.fixture
 def env(tmp_path: Path) -> tuple[TickDeps, FakeFeed]:
     fake = FakeFeed()
-    deps = TickDeps(lake=open_blobstore(f"file://{tmp_path}/lake"), site=open_blobstore(f"file://{tmp_path}/site"),
-                    fetch=fake)
+    deps = TickDeps(
+        lake=open_blobstore(f"file://{tmp_path}/lake"), site=open_blobstore(f"file://{tmp_path}/site"), fetch=fake
+    )
     return deps, fake
 
 

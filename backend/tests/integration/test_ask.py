@@ -43,6 +43,7 @@ def site(tmp_path_factory: pytest.TempPathFactory):  # type: ignore[no-untyped-d
 
 # ---- fake Anthropic client -------------------------------------------------------------------------------
 
+
 @dataclass
 class Block:
     type: str
@@ -97,25 +98,37 @@ def _pick(data: PublishedData) -> tuple[str, str]:
 def test_tools_return_published_numbers(site) -> None:  # type: ignore[no-untyped-def]
     data = PublishedData(site)
     assert find_stop(data, "harvard")["matches"]
-    stop_id, route_id, out = busiest_stop(site)
+    _, _, out = busiest_stop(site)
     assert out["directions"][0]["observations"] > 0
     assert run_tool(data, "route_summary", {"route_id": "1"})["route_id"] == "1"
     assert "error" in run_tool(data, "route_summary", {"route_id": "nope"})
-    assert "error" in run_tool(data, "stop_reliability",
-                               {"stop_id": "zzz", "route_id": "1", "day": "any", "hour_from": 0, "hour_to": 23})
+    assert "error" in run_tool(
+        data, "stop_reliability", {"stop_id": "zzz", "route_id": "1", "day": "any", "hour_from": 0, "hour_to": 23}
+    )
 
 
 def test_tool_loop_returns_grounded_answer(site) -> None:  # type: ignore[no-untyped-def]
     stop_id, _, out = busiest_stop(site)
     n = out["directions"][0]["observations"]
-    client = FakeClient([
-        Resp("tool_use", [Block("tool_use", name="stop_reliability", id="tu1",
-                                input={"stop_id": stop_id, "route_id": "1", "day": "sun", "hour_from": 0,
-                                       "hour_to": 23})]),
-        Resp("end_turn", [Block("text", text=f"Route 1 was observed {n} times at that stop on Sundays.")]),
-    ])
-    resp, usage = service.ask_with_client(client, "claude-opus-5-5", "How reliable is the 1 on Sundays?",
-                                          PublishedData(site), 10**9)
+    client = FakeClient(
+        [
+            Resp(
+                "tool_use",
+                [
+                    Block(
+                        "tool_use",
+                        name="stop_reliability",
+                        id="tu1",
+                        input={"stop_id": stop_id, "route_id": "1", "day": "sun", "hour_from": 0, "hour_to": 23},
+                    )
+                ],
+            ),
+            Resp("end_turn", [Block("text", text=f"Route 1 was observed {n} times at that stop on Sundays.")]),
+        ]
+    )
+    resp, usage = service.ask_with_client(
+        client, "claude-opus-5-5", "How reliable is the 1 on Sundays?", PublishedData(site), 10**9
+    )
     assert resp.fallback is False and str(n) in (resp.answer or "")
     assert any(f.label.endswith("Observations") for f in resp.facts)
     assert resp.links and resp.links[0].href.startswith("/s/mbta/")
@@ -129,10 +142,12 @@ def test_tool_loop_returns_grounded_answer(site) -> None:  # type: ignore[no-unt
 
 
 def test_hallucinated_numbers_fall_back_to_facts(site) -> None:  # type: ignore[no-untyped-def]
-    client = FakeClient([
-        Resp("tool_use", [Block("tool_use", name="route_summary", id="t", input={"route_id": "1"})]),
-        Resp("end_turn", [Block("text", text="Route 1 is on time 97.3% of the time.")]),
-    ])
+    client = FakeClient(
+        [
+            Resp("tool_use", [Block("tool_use", name="route_summary", id="t", input={"route_id": "1"})]),
+            Resp("end_turn", [Block("text", text="Route 1 is on time 97.3% of the time.")]),
+        ]
+    )
     resp, _ = service.ask_with_client(client, "claude-opus-5-5", "Is the 1 reliable?", PublishedData(site), 10**9)
     assert resp.fallback and resp.reason == "ungrounded" and resp.answer is None
 
@@ -140,8 +155,9 @@ def test_hallucinated_numbers_fall_back_to_facts(site) -> None:  # type: ignore[
 def test_refusal_and_api_errors_degrade_gracefully(site) -> None:  # type: ignore[no-untyped-def]
     import anthropic
 
-    resp, _ = service.ask_with_client(FakeClient([Resp("refusal", [])]), "claude-opus-5-5", "q",
-                                      PublishedData(site), 10**9)
+    resp, _ = service.ask_with_client(
+        FakeClient([Resp("refusal", [])]), "claude-opus-5-5", "q", PublishedData(site), 10**9
+    )
     assert resp.fallback and resp.reason == "refused"
     err = anthropic.APIConnectionError(request=httpx.Request("POST", "https://api.anthropic.com/v1/messages"))
     resp, _ = service.ask_with_client(FakeClient([err]), "claude-opus-5-5", "q", PublishedData(site), 10**9)
@@ -182,14 +198,21 @@ pytestmark_db = pytest.mark.integration
 def user_id(app_engine: Engine) -> uuid.UUID:
     uid = uuid.uuid4()
     with app_engine.begin() as conn:
-        conn.execute(insert(t.users).values(id=uid, email=f"{uid}@example.com", oidc_issuer="https://accounts.google.com",
-                                            oidc_subject=str(uid)))
+        conn.execute(
+            insert(t.users).values(
+                id=uid, email=f"{uid}@example.com", oidc_issuer="https://accounts.google.com", oidc_subject=str(uid)
+            )
+        )
     return uid
 
 
 def _settings(tmp_path: Path, **kw: Any) -> Settings:
-    base = {"STOPWATCH_ENV": "test", "ASK_ENABLED": True, "ANTHROPIC_API_KEY": "sk-test",
-            "SITE_URL": f"file://{tmp_path}"}
+    base = {
+        "STOPWATCH_ENV": "test",
+        "ASK_ENABLED": True,
+        "ANTHROPIC_API_KEY": "sk-test",
+        "SITE_URL": f"file://{tmp_path}",
+    }
     base.update(kw)
     return Settings(**base)  # type: ignore[arg-type]
 
@@ -210,7 +233,8 @@ def test_quota_cap_and_disabled(app_engine: Engine, user_id: uuid.UUID, site, tm
         conn.execute(text("update ask_usage set requests = 20 where user_id = :u"), {"u": user_id})
         with pytest.raises(AskQuotaExceededError):
             service.answer_question(conn, user_id, "q", settings=s, client_factory=lambda k: ok, site=site)
-        conn.execute(text("update ask_usage set requests = 1, cost_microusd = 5000000 where user_id = :u"),
-                     {"u": user_id})
+        conn.execute(
+            text("update ask_usage set requests = 1, cost_microusd = 5000000 where user_id = :u"), {"u": user_id}
+        )
         r = service.answer_question(conn, user_id, "q", settings=s, client_factory=lambda k: ok, site=site)
         assert r.fallback and r.reason == "cap_reached"

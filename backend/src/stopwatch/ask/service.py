@@ -77,31 +77,48 @@ class Usage:
 
 def _month_spend_microusd(conn: Connection, today: date) -> int:
     start = today.replace(day=1)
-    return int(conn.execute(select(func.coalesce(func.sum(t.ask_usage.c.cost_microusd), 0))
-                            .where(t.ask_usage.c.day >= start)).scalar_one())
+    return int(
+        conn.execute(
+            select(func.coalesce(func.sum(t.ask_usage.c.cost_microusd), 0)).where(t.ask_usage.c.day >= start)
+        ).scalar_one()
+    )
 
 
 def _today_requests(conn: Connection, user_id: UUID, today: date) -> int:
-    return int(conn.execute(select(func.coalesce(t.ask_usage.c.requests, 0)).where(
-        t.ask_usage.c.user_id == user_id, t.ask_usage.c.day == today)).scalar_one_or_none() or 0)
+    return int(
+        conn.execute(
+            select(func.coalesce(t.ask_usage.c.requests, 0)).where(
+                t.ask_usage.c.user_id == user_id, t.ask_usage.c.day == today
+            )
+        ).scalar_one_or_none()
+        or 0
+    )
 
 
 def _record_usage(conn: Connection, user_id: UUID, today: date, cost: int) -> None:
     stmt = pg_insert(t.ask_usage).values(user_id=user_id, day=today, requests=1, cost_microusd=cost)
-    conn.execute(stmt.on_conflict_do_update(
-        index_elements=["user_id", "day"],
-        set_={"requests": t.ask_usage.c.requests + 1, "cost_microusd": t.ask_usage.c.cost_microusd + cost}))
+    conn.execute(
+        stmt.on_conflict_do_update(
+            index_elements=["user_id", "day"],
+            set_={"requests": t.ask_usage.c.requests + 1, "cost_microusd": t.ask_usage.c.cost_microusd + cost},
+        )
+    )
 
 
 def _facts_from(results: list[dict[str, Any]]) -> tuple[list[AskFact], list[AskLink]]:
     facts: list[AskFact] = []
     links: list[AskLink] = []
-    labels = {"on_time_pct": "On time (%)", "typical_delay_min": "Typical delay (min)",
-              "worst_case_delay_min": "Worst-case delay, 90th pct (min)", "observations": "Observations",
-              "excess_wait_min": "Excess wait (min)", "coverage_pct": "Data coverage (%)",
-              "canceled_trips": "Canceled trips"}
+    labels = {
+        "on_time_pct": "On time (%)",
+        "typical_delay_min": "Typical delay (min)",
+        "worst_case_delay_min": "Worst-case delay, 90th pct (min)",
+        "observations": "Observations",
+        "excess_wait_min": "Excess wait (min)",
+        "coverage_pct": "Data coverage (%)",
+        "canceled_trips": "Canceled trips",
+    }
     for r in results:
-        source = r.get("route_id") and f"route {r['route_id']}" or "published data"
+        source = (r.get("route_id") and f"route {r['route_id']}") or "published data"
         rows = r.get("directions") or [r]
         for row in rows:
             prefix = f"{row.get('headsign')}: " if row.get("headsign") else ""
@@ -116,8 +133,9 @@ def _facts_from(results: list[dict[str, Any]]) -> tuple[list[AskFact], list[AskL
 Client = Any  # anthropic.Anthropic (kept untyped so tests can pass a fake)
 
 
-def ask_with_client(client: Client, model: str, question: str, data: PublishedData,
-                    spend_left_microusd: int) -> tuple[AskResponse, Usage]:
+def ask_with_client(
+    client: Client, model: str, question: str, data: PublishedData, spend_left_microusd: int
+) -> tuple[AskResponse, Usage]:
     """Run the tool loop. Pure with respect to the database (callers handle quotas and accounting)."""
     import anthropic
 
@@ -130,8 +148,15 @@ def ask_with_client(client: Client, model: str, question: str, data: PublishedDa
     try:
         for _turn in range(MAX_TURNS):
             response = client.beta.messages.create(
-                model=model, max_tokens=MAX_TOKENS, system=SYSTEM_PROMPT, tools=TOOL_DEFINITIONS,
-                tool_choice={"type": "auto"}, output_config={"effort": "low"}, messages=messages, **extra)
+                model=model,
+                max_tokens=MAX_TOKENS,
+                system=SYSTEM_PROMPT,
+                tools=TOOL_DEFINITIONS,
+                tool_choice={"type": "auto"},
+                output_config={"effort": "low"},
+                messages=messages,
+                **extra,
+            )
             usage.model = getattr(response, "model", model) or model
             u = response.usage
             usage.input_tokens += int(getattr(u, "input_tokens", 0) or 0)
@@ -147,13 +172,11 @@ def ask_with_client(client: Client, model: str, question: str, data: PublishedDa
                 if not text or bad:
                     if bad:
                         log.warning("ungrounded answer suppressed", numbers=bad[:5])
-                    return AskResponse(answer=None, fallback=True, reason="ungrounded", facts=facts,
-                                       links=links), usage
+                    return AskResponse(answer=None, fallback=True, reason="ungrounded", facts=facts, links=links), usage
                 return AskResponse(answer=text, fallback=False, facts=facts, links=links), usage
             if usage.cost_microusd() >= spend_left_microusd:
                 facts, links = _facts_from(results)
-                return AskResponse(answer=None, fallback=True, reason="cap_reached", facts=facts,
-                                   links=links), usage
+                return AskResponse(answer=None, fallback=True, reason="cap_reached", facts=facts, links=links), usage
             # Append the full assistant content (append-only history keeps thinking blocks valid).
             messages.append({"role": "assistant", "content": response.content})
             tool_results = []
@@ -166,8 +189,9 @@ def ask_with_client(client: Client, model: str, question: str, data: PublishedDa
                 except (LookupError, KeyError, ValueError, TypeError) as exc:
                     out, is_error = {"error": f"{type(exc).__name__}: {exc}"}, True
                 results.append(out)
-                tool_results.append({"type": "tool_result", "tool_use_id": block.id, "content": compact(out),
-                                     "is_error": is_error})
+                tool_results.append(
+                    {"type": "tool_result", "tool_use_id": block.id, "content": compact(out), "is_error": is_error}
+                )
             messages.append({"role": "user", "content": tool_results})
         facts, links = _facts_from(results)
         return AskResponse(answer=None, fallback=True, reason="ungrounded", facts=facts, links=links), usage
@@ -177,9 +201,15 @@ def ask_with_client(client: Client, model: str, question: str, data: PublishedDa
         return AskResponse(answer=None, fallback=True, reason="error", facts=facts, links=links), usage
 
 
-def answer_question(conn: Connection, user_id: UUID, question: str, *, settings: Settings | None = None,
-                    client_factory: Callable[[str], Client] | None = None,
-                    site: BlobStore | None = None) -> AskResponse:
+def answer_question(
+    conn: Connection,
+    user_id: UUID,
+    question: str,
+    *,
+    settings: Settings | None = None,
+    client_factory: Callable[[str], Client] | None = None,
+    site: BlobStore | None = None,
+) -> AskResponse:
     """Answer ``question`` for ``user_id``.
 
     Raises AskDisabledError (503) or AskQuotaExceededError (429). Model errors never raise: they return
@@ -207,8 +237,9 @@ def answer_question(conn: Connection, user_id: UUID, question: str, *, settings:
             return anthropic.Anthropic(api_key=key, max_retries=1, timeout=20.0)
 
     data = PublishedData(site or open_blobstore(s.site_url), agency_id=s.agency_ids[0])
-    response, usage = ask_with_client(client_factory(s.anthropic_api_key.get_secret_value()), s.ask_model,
-                                      question, data, left)
+    response, usage = ask_with_client(
+        client_factory(s.anthropic_api_key.get_secret_value()), s.ask_model, question, data, left
+    )
     cost = usage.cost_microusd() if usage.input_tokens or usage.output_tokens else 0
     _record_usage(conn, user_id, today, cost)
     put_metric("AskCostMicroUSD", cost)

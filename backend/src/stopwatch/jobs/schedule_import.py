@@ -26,8 +26,9 @@ def run(*, force: bool = False) -> list[dict[str, Any]]:
     for agency_id in settings.agency_ids:
         agency = get_agency(agency_id)
         with tempfile.TemporaryDirectory(prefix=f"gtfs-{agency_id}-") as tmp:
-            res = import_schedule(agency, lake, Path(tmp), force=force,
-                                  db_conn_factory=transaction if database_configured() else None)
+            res = import_schedule(
+                agency, lake, Path(tmp), force=force, db_conn_factory=transaction if database_configured() else None
+            )
         summary = {"agency": agency_id, "status": res.status, "version": res.version, "counts": res.counts}
         log.info("schedule import", **summary)
         results.append(summary)

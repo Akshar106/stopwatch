@@ -1,5 +1,6 @@
 [importlinter]
 root_package = stopwatch
+include_external_packages = True
 
 [importlinter:contract:core-is-pure]
 name = Domain core performs no I/O and depends on nothing else in the app
@@ -26,10 +27,12 @@ forbidden_modules =
     fastapi
 
 [importlinter:contract:layers]
-name = Entry points sit above application modules, which sit above platform adapters
+name = Entry points > feature modules > ingest > schedule catalog > platform adapters > pure core
 type = layers
 layers =
     stopwatch.api | stopwatch.jobs
-    stopwatch.accounts | stopwatch.commutes | stopwatch.alerts | stopwatch.ask | stopwatch.ingest | stopwatch.rollups | stopwatch.catalog
+    stopwatch.ask | stopwatch.alerts | stopwatch.rollups | stopwatch.accounts | stopwatch.commutes
+    stopwatch.ingest
+    stopwatch.catalog
     stopwatch.platform
     stopwatch.core

@@ -19,11 +19,22 @@ from stopwatch.core.inference import (
 K = TripKey("t1", "20261019")
 
 
-def trip(stops: dict[int, int | None], *, status: TripStatus = TripStatus.SCHEDULED,
-         skipped: set[int] | None = None, key: TripKey = K) -> TripState:
+def trip(
+    stops: dict[int, int | None],
+    *,
+    status: TripStatus = TripStatus.SCHEDULED,
+    skipped: set[int] | None = None,
+    key: TripKey = K,
+) -> TripState:
     skipped = skipped or set()
-    return TripState(key=key, route_id="1", direction_id=0, vehicle_id="v1", status=status,
-                     stops={s: StopPrediction(s, f"stop{s}", t, s in skipped) for s, t in stops.items()})
+    return TripState(
+        key=key,
+        route_id="1",
+        direction_id=0,
+        vehicle_id="v1",
+        status=status,
+        stops={s: StopPrediction(s, f"stop{s}", t, s in skipped) for s, t in stops.items()},
+    )
 
 
 def snap(ts: int, *trips: TripState) -> Snapshot:
@@ -111,8 +122,8 @@ def test_stopped_index_keeps_earliest_and_drops_finished_trips() -> None:
 
 def test_stop_that_reappears_can_be_emitted_again_and_compaction_must_dedupe() -> None:
     a = snap(1000, trip({1: 1030, 2: 1200}))
-    b = snap(1060, trip({2: 1200}))            # stop 1 served
-    c = snap(1120, trip({1: 1090, 2: 1210}))   # feed glitch: stop 1 is back
-    d = snap(1180, trip({2: 1215}))            # ... and gone again
+    b = snap(1060, trip({2: 1200}))  # stop 1 served
+    c = snap(1120, trip({1: 1090, 2: 1210}))  # feed glitch: stop 1 is back
+    d = snap(1180, trip({2: 1215}))  # ... and gone again
     first, second = infer_events(a, b), infer_events(c, d)
     assert first[0].key() == second[0].key()  # same idempotency key -> one row after compaction

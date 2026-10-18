@@ -7,6 +7,7 @@ conceptually and are documented in docs/methodology.md.
 
 from __future__ import annotations
 
+import itertools
 import math
 from collections.abc import Sequence
 from typing import Literal
@@ -94,10 +95,18 @@ def excess_wait_time(actual_headways_s: Sequence[float], scheduled_headways_s: S
 
 def headways(times_s: Sequence[float]) -> list[float]:
     s = sorted(times_s)
-    return [b - a for a, b in zip(s, s[1:], strict=False) if b > a]
+    return [b - a for a, b in itertools.pairwise(s) if b > a]
 
 
 __all__ = [
-    "HISTOGRAM_EDGES_S", "MIN_SAMPLES", "Punctuality", "average_wait", "classify", "excess_wait_time",
-    "headways", "histogram", "percentile", "percentile_from_histogram",
+    "HISTOGRAM_EDGES_S",
+    "MIN_SAMPLES",
+    "Punctuality",
+    "average_wait",
+    "classify",
+    "excess_wait_time",
+    "headways",
+    "histogram",
+    "percentile",
+    "percentile_from_histogram",
 ]

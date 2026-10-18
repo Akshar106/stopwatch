@@ -65,8 +65,9 @@ def _build_tables(src: Path, out: Path, route_types: tuple[int, ...]) -> dict[st
 
     def csv(name: str) -> str:
         # GTFS is RFC 4180 CSV; don't let the sniffer guess (it misses quoted commas in headsigns).
-        return (f"read_csv('{(src / name).as_posix()}', all_varchar=true, header=true, delim=',', "
-                "quote='\"', escape='\"')")
+        return (
+            f"read_csv('{(src / name).as_posix()}', all_varchar=true, header=true, delim=',', quote='\"', escape='\"')"
+        )
 
     con.execute(f"""
         CREATE TABLE routes AS
@@ -93,7 +94,8 @@ def _build_tables(src: Path, out: Path, route_types: tuple[int, ...]) -> dict[st
         SELECT s.stop_id, s.stop_name AS name, CAST(s.stop_lat AS DOUBLE) AS lat, CAST(s.stop_lon AS DOUBLE) AS lon,
                nullif(s.parent_station, '') AS parent_station
         FROM s WHERE s.stop_id IN (SELECT stop_id FROM used)
-           OR s.stop_id IN (SELECT DISTINCT nullif(parent_station, '') FROM s WHERE stop_id IN (SELECT stop_id FROM used))""")
+           OR s.stop_id IN (SELECT DISTINCT nullif(parent_station, '') FROM s
+                            WHERE stop_id IN (SELECT stop_id FROM used))""")
     if (src / "calendar.txt").exists():
         con.execute(f"""
             CREATE TABLE calendar AS SELECT service_id,
@@ -160,30 +162,62 @@ def upsert_catalog(conn: Connection, agency: AgencyConfig, out: Path, version: s
     conn.execute(delete(t.stops).where(t.stops.c.agency_id == agency.id))
     existing = conn.execute(t.agencies.select().where(t.agencies.c.id == agency.id)).first()
     if existing is None:
-        conn.execute(insert(t.agencies).values(id=agency.id, name=agency.name, timezone=agency.timezone,
-                                               on_time_early_s=agency.on_time_early_s,
-                                               on_time_late_s=agency.on_time_late_s))
+        conn.execute(
+            insert(t.agencies).values(
+                id=agency.id,
+                name=agency.name,
+                timezone=agency.timezone,
+                on_time_early_s=agency.on_time_early_s,
+                on_time_late_s=agency.on_time_late_s,
+            )
+        )
     if info.get("start_date"):
-        conn.execute(delete(t.feed_versions).where((t.feed_versions.c.agency_id == agency.id)
-                                                   & (t.feed_versions.c.version == version)))
-        conn.execute(insert(t.feed_versions).values(agency_id=agency.id, version=version,
-                                                    start_date=info["start_date"], end_date=info["end_date"]))
-    conn.execute(insert(t.routes), [
-        {"agency_id": agency.id, "route_id": r[0], "short_name": r[1], "long_name": r[2], "route_type": r[3],
-         "color": r[4], "text_color": r[5], "sort_order": r[6]} for r in routes])
-    conn.execute(insert(t.stops), [
-        {"agency_id": agency.id, "stop_id": s[0], "name": s[1], "lat": s[2], "lon": s[3], "parent_station": s[4]}
-        for s in stops])
+        conn.execute(
+            delete(t.feed_versions).where(
+                (t.feed_versions.c.agency_id == agency.id) & (t.feed_versions.c.version == version)
+            )
+        )
+        conn.execute(
+            insert(t.feed_versions).values(
+                agency_id=agency.id, version=version, start_date=info["start_date"], end_date=info["end_date"]
+            )
+        )
+    conn.execute(
+        insert(t.routes),
+        [
+            {
+                "agency_id": agency.id,
+                "route_id": r[0],
+                "short_name": r[1],
+                "long_name": r[2],
+                "route_type": r[3],
+                "color": r[4],
+                "text_color": r[5],
+                "sort_order": r[6],
+            }
+            for r in routes
+        ],
+    )
+    conn.execute(
+        insert(t.stops),
+        [
+            {"agency_id": agency.id, "stop_id": s[0], "name": s[1], "lat": s[2], "lon": s[3], "parent_station": s[4]}
+            for s in stops
+        ],
+    )
     if route_stops:
         conn.execute(insert(t.route_stops), [{"agency_id": agency.id, **rs} for rs in route_stops])
 
 
-def import_schedule(agency: AgencyConfig, lake: BlobStore, workdir: Path, *, force: bool = False,
-                    db_conn_factory: Any = None) -> ImportResult:
+def import_schedule(
+    agency: AgencyConfig, lake: BlobStore, workdir: Path, *, force: bool = False, db_conn_factory: Any = None
+) -> ImportResult:
     cur_blob = lake.get(current_key(agency.id))
     current = json.loads(cur_blob.data) if cur_blob else {"versions": []}
     fetched = fetch_bytes(
-        agency.static_gtfs_url, max_bytes=MAX_ZIP_BYTES, read_timeout=60,
+        agency.static_gtfs_url,
+        max_bytes=MAX_ZIP_BYTES,
+        read_timeout=60,
         if_none_match=None if force else current.get("etag"),
         if_modified_since=None if force else current.get("last_modified"),
     )
@@ -202,19 +236,39 @@ def import_schedule(agency: AgencyConfig, lake: BlobStore, workdir: Path, *, for
         return ImportResult(agency.id, "unchanged", version)
 
     for table in ("routes", "trips", "stop_times", "stops", "calendar", "calendar_dates"):
-        lake.put(table_key(agency.id, version, table), (out / f"{table}.parquet").read_bytes(),
-                 content_type="application/vnd.apache.parquet")
+        lake.put(
+            table_key(agency.id, version, table),
+            (out / f"{table}.parquet").read_bytes(),
+            content_type="application/vnd.apache.parquet",
+        )
     now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-    meta = {"agency_id": agency.id, "version": version, "sha256_12": digest, "imported_at": now,
-            "start_date": info["start_date"], "end_date": info["end_date"], "counts": info["counts"],
-            "source": agency.static_gtfs_url}
+    meta = {
+        "agency_id": agency.id,
+        "version": version,
+        "sha256_12": digest,
+        "imported_at": now,
+        "start_date": info["start_date"],
+        "end_date": info["end_date"],
+        "counts": info["counts"],
+        "source": agency.static_gtfs_url,
+    }
     lake.put(meta_key(agency.id, version), json.dumps(meta, indent=2).encode(), content_type="application/json")
 
     versions = [v for v in current.get("versions", []) if v["version"] != version]
-    versions.append({"version": version, "start_date": info["start_date"] or now[:10],
-                     "end_date": info["end_date"] or now[:10], "imported_at": now})
-    new_current = {"version": version, "versions": versions[-KEEP_VERSIONS:], "etag": fetched.etag,
-                   "last_modified": fetched.last_modified}
+    versions.append(
+        {
+            "version": version,
+            "start_date": info["start_date"] or now[:10],
+            "end_date": info["end_date"] or now[:10],
+            "imported_at": now,
+        }
+    )
+    new_current = {
+        "version": version,
+        "versions": versions[-KEEP_VERSIONS:],
+        "etag": fetched.etag,
+        "last_modified": fetched.last_modified,
+    }
     lake.put(current_key(agency.id), json.dumps(new_current, indent=2).encode(), content_type="application/json")
 
     if db_conn_factory is not None:

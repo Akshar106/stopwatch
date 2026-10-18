@@ -11,14 +11,22 @@ from stopwatch.ingest.state import IngestState
 TZ = "America/New_York"
 # Monday 2026-10-19 07:50 local
 NOW = int(datetime(2026, 10, 19, 7, 50, tzinfo=ZoneInfo(TZ)).timestamp())
-RULE = Rule("r1", "1", 0, "64", days_mask=0b0011111, window_start="07:30", window_end="08:30",
-            threshold_min=10, notify_cancellations=True)
+RULE = Rule(
+    "r1",
+    "1",
+    0,
+    "64",
+    days_mask=0b0011111,
+    window_start="07:30",
+    window_end="08:30",
+    threshold_min=10,
+    notify_cancellations=True,
+)
 
 
 def snapshot(pred_offset_s: int | None, status: TripStatus = TripStatus.SCHEDULED) -> Snapshot:
     key = TripKey("trip-805", "20261019")
-    stops = {} if pred_offset_s is None else {
-        12: StopPrediction(12, "64", NOW + pred_offset_s)}
+    stops = {} if pred_offset_s is None else {12: StopPrediction(12, "64", NOW + pred_offset_s)}
     return Snapshot(feed_ts=NOW, trips={key: TripState(key, "1", 0, "v1", status, stops)})
 
 

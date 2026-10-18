@@ -66,7 +66,8 @@ def test_fetch_enforces_size_cap() -> None:
 @respx.mock
 def test_fetch_does_not_follow_redirects_or_retry_client_errors() -> None:
     route = respx.get("https://feed.test/r").mock(
-        return_value=httpx.Response(302, headers={"location": "http://169.254.169.254/"}))
+        return_value=httpx.Response(302, headers={"location": "http://169.254.169.254/"})
+    )
     with pytest.raises(FetchError, match="not retried"):
         fetch_bytes("https://feed.test/r", max_bytes=10, retries=3)
     assert route.call_count == 1

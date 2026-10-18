@@ -1,7 +1,8 @@
 """Golden test: replaying recorded MBTA snapshots must keep producing exactly the same events.
 
 If inference changes intentionally, regenerate with:
-    uv run python -m stopwatch.ingest.replay tests/fixtures/rt_snapshots/sample --jsonl > tests/replay/golden_events.jsonl
+    uv run python -m stopwatch.ingest.replay tests/fixtures/rt_snapshots/sample --jsonl \
+        > tests/replay/golden_events.jsonl
 and review the diff in the PR.
 """
 

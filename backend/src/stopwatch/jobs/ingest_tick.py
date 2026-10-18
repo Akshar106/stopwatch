@@ -53,8 +53,7 @@ def run(now_fn: Any = None) -> list[dict[str, Any]]:
         agency = get_agency(agency_id)
         if settings.alerts_enabled:
             hook = hook_factory(agency, lake, settings.notify_function_name)
-        deps = TickDeps(lake=lake, site=site, fetch=_fetcher(time.monotonic() + TICK_BUDGET_S),
-                        on_snapshot=hook)
+        deps = TickDeps(lake=lake, site=site, fetch=_fetcher(time.monotonic() + TICK_BUDGET_S), on_snapshot=hook)
         if now_fn is not None:
             deps.now = now_fn
         try:
@@ -64,10 +63,16 @@ def run(now_fn: Any = None) -> list[dict[str, Any]]:
             put_metric("IngestSuccess", 0)
             raise
         _emit(result)
-        summary = {"agency": agency_id, "outcome": result.outcome, "feed_ts": result.feed_ts,
-                   "feed_age_s": result.feed_age_s, "events": result.counts,
-                   "low_conf_pct": result.low_confidence_ratio, "duration_ms": result.duration_ms,
-                   "error": result.error}
+        summary = {
+            "agency": agency_id,
+            "outcome": result.outcome,
+            "feed_ts": result.feed_ts,
+            "feed_age_s": result.feed_age_s,
+            "events": result.counts,
+            "low_conf_pct": result.low_confidence_ratio,
+            "duration_ms": result.duration_ms,
+            "error": result.error,
+        }
         (log.info if result.outcome != "failed" else log.error)("tick", **summary)
         summaries.append(summary)
     return summaries

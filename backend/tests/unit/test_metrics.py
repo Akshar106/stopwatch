@@ -16,8 +16,9 @@ from stopwatch.core.metrics import (
 )
 
 
-@pytest.mark.parametrize(("delay", "expected"), [(-61, "early"), (-60, "on_time"), (0, "on_time"),
-                                                 (300, "on_time"), (301, "late")])
+@pytest.mark.parametrize(
+    ("delay", "expected"), [(-61, "early"), (-60, "on_time"), (0, "on_time"), (300, "on_time"), (301, "late")]
+)
 def test_on_time_window_edges(delay: int, expected: str) -> None:
     assert classify(delay) == expected
 

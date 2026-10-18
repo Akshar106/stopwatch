@@ -68,7 +68,7 @@ def _rollup_today() -> None:
         log.info("published local build", build_id=summary["build_id"])
     except ScheduleNotImportedError:
         log.warning("schedule not imported; skipping rollup")
-    except Exception as exc:  # noqa: BLE001 - keep the dev loop alive
+    except Exception as exc:
         log.exception("local rollup failed", error_type=type(exc).__name__)
 
 
@@ -88,7 +88,7 @@ def main() -> int:
         started = time.monotonic()
         try:
             ingest_tick.run()
-        except Exception as exc:  # noqa: BLE001 - one bad tick must not kill the worker
+        except Exception as exc:
             log.exception("tick failed", error_type=type(exc).__name__)
         if minute % args.rollup_every == args.rollup_every - 1:
             _rollup_today()

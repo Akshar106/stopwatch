@@ -68,7 +68,7 @@ source = ["stopwatch"]
 branch = true
 
 [tool.ruff]
-line-length = 110
+line-length = 120
 target-version = "py313"
 src = ["src", "tests"]
 
@@ -79,11 +79,20 @@ ignore = [
     "PLR2004",  # magic values in tests and domain constants
     "S101",     # assert is used in tests
     "PLR0911", "PLR0912", "PLR0915",
+    "PLR0917",  # positional args are fine for small internal helpers
+    "PLC0415",  # lazy imports are deliberate: keep DuckDB/boto3/anthropic/pywebpush out of cold paths and the API zip
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S", "PLR", "DTZ", "PTH"]
 "migrations/**" = ["E501"]
+# DuckDB SQL is composed from internal file paths, dates and constants (never user input); values that
+# come from requests always go through SQLAlchemy bound parameters (enforced by Semgrep in CI).
+"src/stopwatch/rollups/**" = ["S608"]
+"src/stopwatch/catalog/gtfs_import.py" = ["S608"]
+"src/stopwatch/alerts/evaluate.py" = ["S608"]
+"src/stopwatch/jobs/lamp_validate.py" = ["S608"]
+"src/stopwatch/platform/duck.py" = ["S608"]
 
 [tool.mypy]
 python_version = "3.13"

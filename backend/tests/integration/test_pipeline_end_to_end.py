@@ -38,8 +38,16 @@ def pipeline(tmp_path_factory: pytest.TempPathFactory) -> dict:
     build = compute_agency(MBTA, lake, catalog, D, root / "work" / "compute")
     manifest = pub.build_manifest("B1", "2026-10-19T08:15:00Z", [build.manifest])
     pub.publish(site, "B1", build.files, manifest)
-    return {"root": root, "lake": lake, "site": site, "ticks": ticks, "compacted": compacted, "report": report,
-            "build": build, "catalog": catalog}
+    return {
+        "root": root,
+        "lake": lake,
+        "site": site,
+        "ticks": ticks,
+        "compacted": compacted,
+        "report": report,
+        "build": build,
+        "catalog": catalog,
+    }
 
 
 def _json(site: BlobStore, key: str) -> dict:
@@ -65,8 +73,10 @@ def test_compaction_joins_schedule_and_dedupes(pipeline: dict) -> None:
     dupes = con.execute(f"""SELECT count(*) FROM (SELECT trip_id, stop_sequence, count(*) n FROM '{path}'
                             WHERE stop_status = 'served' GROUP BY ALL HAVING n > 1)""").fetchone()[0]
     assert dupes == 0
-    sane = con.execute(f"SELECT avg(CASE WHEN delay_valid THEN 1 ELSE 0 END) FROM '{path}' "
-                       "WHERE stop_status = 'served' AND sched_s IS NOT NULL").fetchone()[0]
+    sane = con.execute(
+        f"SELECT avg(CASE WHEN delay_valid THEN 1 ELSE 0 END) FROM '{path}' "
+        "WHERE stop_status = 'served' AND sched_s IS NOT NULL"
+    ).fetchone()[0]
     assert sane > 0.95
 
 
@@ -96,8 +106,17 @@ def test_published_documents_match_contract(pipeline: dict) -> None:
     manifest = _json(site, "data/v1/manifest.json")
     assert manifest["schema_version"] == 1 and manifest["build_id"] == "B1"
     agency = manifest["agencies"][0]
-    assert set(agency) >= {"id", "name", "timezone", "live_api", "window", "on_time_definition_s",
-                           "histogram_edges_s", "min_samples", "paths"}
+    assert set(agency) >= {
+        "id",
+        "name",
+        "timezone",
+        "live_api",
+        "window",
+        "on_time_definition_s",
+        "histogram_edges_s",
+        "min_samples",
+        "paths",
+    }
     paths = agency["paths"]
     stops = _json(site, paths["stops"].lstrip("/"))
     assert stops["stops"] and set(stops["stops"][0]) == {"id", "name", "lat", "lon", "parent", "routes"}
@@ -107,8 +126,20 @@ def test_published_documents_match_contract(pipeline: dict) -> None:
     detail = _json(site, paths["route_template"].replace("{route_id}", "1").lstrip("/"))
     assert detail["route"]["id"] == "1" and detail["directions"]
     cell = detail["directions"][0]["stops"][0]["cells"][0]
-    assert set(cell) == {"day", "hour", "n", "p50_s", "p90_s", "on_time_pct", "early_pct", "canceled", "skipped",
-                         "sched_headway_s", "ewt_s", "hist"}
+    assert set(cell) == {
+        "day",
+        "hour",
+        "n",
+        "p50_s",
+        "p90_s",
+        "on_time_pct",
+        "early_pct",
+        "canceled",
+        "skipped",
+        "sched_headway_s",
+        "ewt_s",
+        "hist",
+    }
     assert len(cell["hist"]) == len(agency["histogram_edges_s"]) + 1
     coverage = _json(site, paths["coverage"].lstrip("/"))
     assert coverage["days"][0]["service_date"] == SAMPLE_DATE
@@ -135,8 +166,13 @@ def test_sql_metrics_match_python_reference(pipeline: dict) -> None:
         GROUP BY ALL ORDER BY len(list(delay_s)) DESC LIMIT 1""").fetchone()
     route_id, direction_id, stop_id, delays = rows
     detail = _json(pipeline["site"], f"data/v1/builds/B1/mbta/routes/{route_id}.json")
-    stop = next(s for d in detail["directions"] if d["direction_id"] == direction_id
-                for s in d["stops"] if s["stop_id"] == stop_id)
+    stop = next(
+        s
+        for d in detail["directions"]
+        if d["direction_id"] == direction_id
+        for s in d["stops"]
+        if s["stop_id"] == stop_id
+    )
     assert stop["summary"]["n"] == len(delays)
     if len(delays) >= MIN_SAMPLES:
         assert stop["summary"]["p50_s"] == round(percentile(delays, 0.5))  # type: ignore[arg-type]

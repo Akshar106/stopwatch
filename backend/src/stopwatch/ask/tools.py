@@ -20,7 +20,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "find_stop",
         "description": "Search transit stops by name. Returns up to 5 matches with their ids and the routes that "
-                       "serve them. Use this first whenever the user names a stop or street.",
+        "serve them. Use this first whenever the user names a stop or street.",
         "strict": True,
         "input_schema": {
             "type": "object",
@@ -32,7 +32,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "route_summary",
         "description": "Route-level reliability over the published window: on-time %, typical (median) and "
-                       "worst-case (90th percentile) delay, data coverage, and the weekly trend.",
+        "worst-case (90th percentile) delay, data coverage, and the weekly trend.",
         "strict": True,
         "input_schema": {
             "type": "object",
@@ -44,8 +44,8 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "stop_reliability",
         "description": "Reliability of one route at one stop for a day type and an hour range (local time, 0-23, "
-                       "inclusive). Returns sample size, on-time %, typical and worst-case delay, cancellations "
-                       "and excess wait time when the route is frequent.",
+        "inclusive). Returns sample size, on-time %, typical and worst-case delay, cancellations "
+        "and excess wait time when the route is frequent.",
         "strict": True,
         "input_schema": {
             "type": "object",
@@ -131,8 +131,7 @@ def find_stop(data: PublishedData, query: str) -> dict[str, Any]:
             continue
         scored.append((score, len(name), s))
     scored.sort(key=lambda x: (x[0], x[1], x[2]["id"]))
-    return {"matches": [{"stop_id": s["id"], "name": s["name"], "routes": s["routes"][:12]}
-                        for _, _, s in scored[:5]]}
+    return {"matches": [{"stop_id": s["id"], "name": s["name"], "routes": s["routes"][:12]} for _, _, s in scored[:5]]}
 
 
 def route_summary(data: PublishedData, route_id: str) -> dict[str, Any]:
@@ -151,15 +150,18 @@ def route_summary(data: PublishedData, route_id: str) -> dict[str, Any]:
         "typical_delay_min": _mins(summary.get("p50_s")),
         "worst_case_delay_min": _mins(summary.get("p90_s")),
         "coverage_pct": detail["coverage"].get("coverage_pct"),
-        "weekly_trend": [{"week_start": t["week_start"], "on_time_pct": t["on_time_pct"],
-                          "worst_case_delay_min": _mins(t["p90_s"])} for t in detail["trend"][-8:]],
+        "weekly_trend": [
+            {"week_start": t["week_start"], "on_time_pct": t["on_time_pct"], "worst_case_delay_min": _mins(t["p90_s"])}
+            for t in detail["trend"][-8:]
+        ],
         "on_time_definition_min": [x / 60 for x in detail["on_time_definition_s"]],
         "link": f"/r/{data.agency_id}/{route_id}",
     }
 
 
-def stop_reliability(data: PublishedData, stop_id: str, route_id: str, day: str, hour_from: int,
-                     hour_to: int) -> dict[str, Any]:
+def stop_reliability(
+    data: PublishedData, stop_id: str, route_id: str, day: str, hour_from: int, hour_to: int
+) -> dict[str, Any]:
     try:
         detail = data.route(route_id)
     except LookupError:
@@ -167,8 +169,13 @@ def stop_reliability(data: PublishedData, stop_id: str, route_id: str, day: str,
     lo, hi = sorted((max(0, min(23, hour_from)), max(0, min(23, hour_to))))
     edges = detail["histogram_edges_s"]
     min_n = detail.get("min_samples", 8)
-    result: dict[str, Any] = {"stop_id": stop_id, "route_id": route_id, "day": DAYS.get(day, day),
-                              "hours": f"{lo}:00-{hi}:59", "directions": []}
+    result: dict[str, Any] = {
+        "stop_id": stop_id,
+        "route_id": route_id,
+        "day": DAYS.get(day, day),
+        "hours": f"{lo}:00-{hi}:59",
+        "directions": [],
+    }
     for d in detail["directions"]:
         stop = next((s for s in d["stops"] if s["stop_id"] == stop_id), None)
         if stop is None:
@@ -177,19 +184,24 @@ def stop_reliability(data: PublishedData, stop_id: str, route_id: str, day: str,
         n = sum(c["n"] for c in cells)
         hist = [sum(c["hist"][i] for c in cells) for i in range(len(edges) + 1)] if cells else []
         weighted = [(c["on_time_pct"], c["n"]) for c in cells if c["on_time_pct"] is not None]
-        on_time = (round(sum(p * w for p, w in weighted) / sum(w for _, w in weighted), 1)
-                   if weighted and n >= min_n else None)
+        on_time = (
+            round(sum(p * w for p, w in weighted) / sum(w for _, w in weighted), 1) if weighted and n >= min_n else None
+        )
         ewt = [c["ewt_s"] for c in cells if c["ewt_s"] is not None]
-        result["directions"].append({
-            "direction_id": d["direction_id"], "headsign": d.get("headsign"), "stop_name": stop["name"],
-            "observations": n,
-            "enough_data": n >= min_n,
-            "on_time_pct": on_time,
-            "typical_delay_min": _mins(percentile_from_histogram(hist, edges, 0.5)) if n >= min_n else None,
-            "worst_case_delay_min": _mins(percentile_from_histogram(hist, edges, 0.9)) if n >= min_n else None,
-            "canceled_trips": sum(c["canceled"] for c in cells),
-            "excess_wait_min": _mins(sum(ewt) / len(ewt)) if ewt else None,
-        })
+        result["directions"].append(
+            {
+                "direction_id": d["direction_id"],
+                "headsign": d.get("headsign"),
+                "stop_name": stop["name"],
+                "observations": n,
+                "enough_data": n >= min_n,
+                "on_time_pct": on_time,
+                "typical_delay_min": _mins(percentile_from_histogram(hist, edges, 0.5)) if n >= min_n else None,
+                "worst_case_delay_min": _mins(percentile_from_histogram(hist, edges, 0.9)) if n >= min_n else None,
+                "canceled_trips": sum(c["canceled"] for c in cells),
+                "excess_wait_min": _mins(sum(ewt) / len(ewt)) if ewt else None,
+            }
+        )
     if not result["directions"]:
         return {"error": f"route {route_id} does not serve stop {stop_id}"}
     result["link"] = f"/s/{data.agency_id}/{stop_id}"
@@ -203,6 +215,12 @@ def run_tool(data: PublishedData, name: str, args: dict[str, Any]) -> dict[str, 
     if name == "route_summary":
         return route_summary(data, str(args["route_id"]))
     if name == "stop_reliability":
-        return stop_reliability(data, str(args["stop_id"]), str(args["route_id"]), str(args["day"]),
-                                int(args["hour_from"]), int(args["hour_to"]))
+        return stop_reliability(
+            data,
+            str(args["stop_id"]),
+            str(args["route_id"]),
+            str(args["day"]),
+            int(args["hour_from"]),
+            int(args["hour_to"]),
+        )
     return {"error": f"unknown tool {name!r}"}
