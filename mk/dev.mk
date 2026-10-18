@@ -19,6 +19,8 @@ db: ## Start only Postgres (for tests and host-run commands)
 
 install: ## Install backend and frontend dependencies
 	cd $(BACKEND) && uv sync --all-extras
+	@# macOS can mark the editable-install .pth hidden; Python 3.13 skips hidden .pth files.
+	-@chflags nohidden $(BACKEND)/.venv/lib/python3.13/site-packages/*.pth 2>/dev/null || true
 	cd $(ROOT)/frontend && npm ci
 
 lint: ## Ruff + import-linter (module boundaries)
