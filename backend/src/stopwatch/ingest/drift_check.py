@@ -23,11 +23,24 @@ CHECKS: dict[str, tuple[str, float]] = {
     "feed_age_s": ("max", 600),
     "trip_updates": ("min", 100),
     "past_stop_share": ("max", 0.05),  # served stops should leave the feed (inference depends on it)
-    "skipped_share": ("max", 0.40),
+    # Raw SKIPPED share is ~18% because of skip-only placeholder trips (docs/feed-notes.md); the share that
+    # matters is among trips actually carrying predictions (~2% observed on 2026-10-18).
+    "active_skipped_share": ("max", 0.10),
     "stop_sequence_share": ("min", 0.99),  # we key stops by stop_sequence
     "start_date_share": ("min", 0.99),  # and trips by (trip_id, start_date)
     "vehicle_stop_sequence_share": ("min", 0.5),
 }
+
+
+def _active_skipped_share(trips: list[Any]) -> float:
+    skipped = rt.TripUpdate.StopTimeUpdate.SKIPPED
+    active = [
+        t
+        for t in trips
+        if any(s.schedule_relationship != skipped and (s.arrival.time or s.departure.time) for s in t.stop_time_update)
+    ]
+    stops = [s for t in active for s in t.stop_time_update]
+    return sum(1 for s in stops if s.schedule_relationship == skipped) / max(len(stops), 1)
 
 
 def measure(agency_id: str) -> dict[str, Any]:
@@ -54,6 +67,7 @@ def measure(agency_id: str) -> dict[str, Any]:
         "skipped_share": round(
             sum(1 for s in stus if s.schedule_relationship == rt.TripUpdate.StopTimeUpdate.SKIPPED) / n, 4
         ),
+        "active_skipped_share": round(_active_skipped_share(trips), 4),
         "delay_field_share": round(sum(1 for s in stus if s.arrival.HasField("delay")) / n, 4),
         "stop_sequence_share": round(sum(1 for s in stus if s.HasField("stop_sequence")) / n, 4),
         "start_date_share": round(sum(1 for t in trips if t.trip.start_date) / max(len(trips), 1), 4),

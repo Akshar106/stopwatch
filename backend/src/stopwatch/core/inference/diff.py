@@ -5,6 +5,11 @@ disappears. So a stop present in the previous snapshot and absent from the curre
 somewhere in between, and the last prediction we saw is the best available estimate of when. Vehicle
 positions that show the vehicle STOPPED_AT the stop tighten the estimate.
 
+SKIPPED stops (see docs/feed-notes.md): MBTA marks ~18% of stop updates SKIPPED, mostly on placeholder trips
+published up to a day ahead. A skip is therefore only recorded once it is confirmed (the stop leaves the feed
+while the trip continues, or the trip ends having run), never when it first appears; a vehicle observed
+STOPPED_AT a "skipped" stop wins and yields an arrival.
+
 Properties (property-tested in tests/property/test_inference_properties.py):
   * at most one event per (kind, trip, stop_sequence) per call;
   * est_arrival <= observed_at (no arrivals in the future);
@@ -96,6 +101,21 @@ def _arrival(
     )
 
 
+def _skipped(trip: TripState, stop: StopPrediction, cur_ts: int) -> ObservedEvent:
+    return ObservedEvent(
+        kind=EventKind.SKIPPED,
+        service_date=_service_date(trip.key.start_date),
+        trip_id=trip.key.trip_id,
+        route_id=trip.route_id,
+        direction_id=trip.direction_id,
+        trip_status=trip.status,
+        observed_at=cur_ts,
+        stop_id=stop.stop_id,
+        stop_sequence=stop.stop_sequence,
+        vehicle_id=trip.vehicle_id,
+    )
+
+
 def infer_events(prev: Snapshot | None, cur: Snapshot, stopped: StoppedIndex | None = None) -> list[ObservedEvent]:
     """Events revealed by moving from ``prev`` to ``cur``.
 
@@ -112,34 +132,45 @@ def infer_events(prev: Snapshot | None, cur: Snapshot, stopped: StoppedIndex | N
         ptrip = prev.trips[key]
         ctrip = cur.trips.get(key)
         if ptrip.status is TripStatus.CANCELED:
-            continue
+            continue  # cancellations are reported once (below); their stops are neither served nor "skipped"
         remaining = [s for s in ctrip.stops if not ctrip.stops[s].skipped] if ctrip else []
         min_remaining = min(remaining) if remaining else None
+        # A trip that never carried a single timed, non-skipped prediction is a placeholder (MBTA publishes
+        # skip-only trips up to a day ahead); when one vanishes we learn nothing about its stops.
+        trip_ran = any(not p.skipped and p.time is not None for p in ptrip.stops.values())
         for seq in sorted(ptrip.stops):
             pstop = ptrip.stops[seq]
-            if pstop.skipped:
-                continue
             if ctrip is not None:
                 if ctrip.status is TripStatus.CANCELED:
                     break
                 if seq in ctrip.stops:
-                    continue  # not served yet (or now marked skipped; handled below)
+                    continue  # not served yet
                 if min_remaining is not None and min_remaining < seq:
                     continue  # an earlier stop is still pending: out-of-order removal, don't guess
-                method = Method.LAST_PREDICTION
+            stopped_at = stopped.get((key, seq))
+            if pstop.skipped:
+                if stopped_at is not None:
+                    # Marked SKIPPED, but the vehicle was observed stopped there: trust the vehicle.
+                    event = _arrival(
+                        ptrip,
+                        pstop,
+                        prev_ts=prev.feed_ts,
+                        cur_ts=cur.feed_ts,
+                        stopped_at=stopped_at,
+                        method=Method.LAST_PREDICTION,
+                    )
+                elif ctrip is not None or trip_ran:
+                    # Confirmed skip: it left the feed as the trip moved past it, or the trip ended.
+                    event = _skipped(ptrip, pstop, cur.feed_ts)
+                else:
+                    event = None
             else:
-                # Whole trip vanished: only stops that were imminent are plausibly served.
-                if pstop.time is None or pstop.time > cur.feed_ts + TRIP_END_GRACE_S:
-                    continue
-                method = Method.TRIP_END_FLUSH
-            event = _arrival(
-                ptrip,
-                pstop,
-                prev_ts=prev.feed_ts,
-                cur_ts=cur.feed_ts,
-                stopped_at=stopped.get((key, seq)),
-                method=method,
-            )
+                if ctrip is None and (pstop.time is None or pstop.time > cur.feed_ts + TRIP_END_GRACE_S):
+                    continue  # whole trip vanished: only stops that were imminent are plausibly served
+                method = Method.LAST_PREDICTION if ctrip is not None else Method.TRIP_END_FLUSH
+                event = _arrival(
+                    ptrip, pstop, prev_ts=prev.feed_ts, cur_ts=cur.feed_ts, stopped_at=stopped_at, method=method
+                )
             if event is not None:
                 events.append(event)
 
@@ -159,27 +190,6 @@ def infer_events(prev: Snapshot | None, cur: Snapshot, stopped: StoppedIndex | N
                     vehicle_id=now_trip.vehicle_id,
                 )
             )
-            continue
-        for seq in sorted(now_trip.stops):
-            now_stop = now_trip.stops[seq]
-            if not now_stop.skipped:
-                continue
-            was_skipped = before is not None and seq in before.stops and before.stops[seq].skipped
-            if not was_skipped:
-                events.append(
-                    ObservedEvent(
-                        kind=EventKind.SKIPPED,
-                        service_date=_service_date(key.start_date),
-                        trip_id=key.trip_id,
-                        route_id=now_trip.route_id,
-                        direction_id=now_trip.direction_id,
-                        trip_status=now_trip.status,
-                        observed_at=cur.feed_ts,
-                        stop_id=now_stop.stop_id,
-                        stop_sequence=seq,
-                        vehicle_id=now_trip.vehicle_id,
-                    )
-                )
     return events
 
 

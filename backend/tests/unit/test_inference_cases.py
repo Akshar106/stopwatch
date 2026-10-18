@@ -94,23 +94,51 @@ def test_vanished_trip_flushes_only_imminent_stops() -> None:
     assert events[0].confidence is Confidence.MEDIUM
 
 
-def test_skipped_and_canceled_events_are_emitted_once() -> None:
-    prev = snap(1000, trip({1: 1030, 2: 1100}))
-    cur = snap(1060, trip({1: 1070, 2: 1100}, skipped={2}))
-    [ev] = infer_events(prev, cur)
-    assert (ev.kind, ev.stop_sequence) == (EventKind.SKIPPED, 2)
-    # Still skipped in the next snapshot: no duplicate.
-    assert infer_events(cur, snap(1120, trip({1: 1130, 2: 1100}, skipped={2}))) == []
-
-    canceled = snap(1180, trip({1: 1190}, status=TripStatus.CANCELED))
-    [cx] = infer_events(snap(1120, trip({1: 1130})), canceled)
-    assert cx.kind is EventKind.CANCELED
-    assert infer_events(canceled, snap(1240, trip({1: 1250}, status=TripStatus.CANCELED))) == []
+def test_skip_is_recorded_only_once_confirmed() -> None:
+    # A SKIPPED stop that is still listed tells us nothing yet (MBTA publishes skip-only placeholders).
+    prev = snap(1000, trip({1: 1030, 2: None, 3: 1200}, skipped={2}))
+    assert [e.kind for e in infer_events(prev, snap(1060, trip({2: None, 3: 1200}, skipped={2})))] == [
+        EventKind.ARRIVAL
+    ]
+    # The skipped stop leaves the feed while the trip continues: now it is a confirmed skip.
+    cur = snap(1060, trip({2: None, 3: 1200}, skipped={2}))
+    [ev] = infer_events(cur, snap(1120, trip({3: 1210})))
+    assert (ev.kind, ev.stop_sequence, ev.est_arrival) == (EventKind.SKIPPED, 2, None)
 
 
-def test_skipped_stop_disappearing_is_not_an_arrival() -> None:
+def test_skipped_stop_disappearing_is_a_skip_not_an_arrival() -> None:
     prev = snap(1000, trip({1: 1030, 2: 1100}, skipped={1}))
-    assert infer_events(prev, snap(1060, trip({2: 1100}))) == []
+    assert [e.kind for e in infer_events(prev, snap(1060, trip({2: 1100})))] == [EventKind.SKIPPED]
+
+
+def test_vehicle_stopped_at_a_skipped_stop_is_an_arrival() -> None:
+    prev = snap(1000, trip({1: None, 2: 1200}, skipped={1}))
+    [ev] = infer_events(prev, snap(1060, trip({2: 1200})), {(K, 1): 1040})
+    assert (ev.kind, ev.method, ev.est_arrival) == (EventKind.ARRIVAL, Method.VP_STOPPED, 1040)
+
+
+def test_placeholder_trip_vanishing_yields_nothing() -> None:
+    placeholder = snap(1000, trip({1: None, 2: None}, skipped={1, 2}))
+    assert infer_events(placeholder, snap(1060)) == []
+
+
+def test_trip_that_ran_and_ended_reports_its_remaining_skips() -> None:
+    prev = snap(1000, trip({4: 1040, 5: None, 6: None}, skipped={5, 6}))
+    events = infer_events(prev, snap(1060))
+    assert [(e.kind, e.stop_sequence) for e in events] == [
+        (EventKind.ARRIVAL, 4),
+        (EventKind.SKIPPED, 5),
+        (EventKind.SKIPPED, 6),
+    ]
+
+
+def test_cancellation_is_reported_once_and_its_stops_are_not_skips() -> None:
+    running = snap(1120, trip({1: 1130, 2: None}, skipped={2}))
+    canceled = snap(1180, trip({1: 1190, 2: None}, status=TripStatus.CANCELED, skipped={2}))
+    [cx] = infer_events(running, canceled)
+    assert cx.kind is EventKind.CANCELED
+    assert infer_events(canceled, snap(1240, trip({2: None}, status=TripStatus.CANCELED, skipped={2}))) == []
+    assert infer_events(canceled, snap(1240)) == []  # canceled trip leaves the feed: still nothing
 
 
 def test_stopped_index_keeps_earliest_and_drops_finished_trips() -> None:
