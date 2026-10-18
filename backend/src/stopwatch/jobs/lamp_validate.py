@@ -95,7 +95,8 @@ def validate(
                         AND (l.vehicle_id = o.vehicle_id OR l.trip_id = o.trip_id)
                         AND abs(o.t - l.stop_timestamp) <= {MATCH_WINDOW_S})
             SELECT * FROM j QUALIFY row_number() OVER (PARTITION BY trip_id, stop_sequence ORDER BY err) = 1""")
-        n, med, p90 = con.execute("SELECT count(*), median(err), quantile_cont(err, 0.9) FROM m").fetchone()  # type: ignore[misc]
+        stats = con.execute("SELECT count(*), median(err), quantile_cont(err, 0.9) FROM m").fetchone()
+        n, med, p90 = stats if stats else (0, None, None)
         report.update(
             {
                 "sample": int(n),

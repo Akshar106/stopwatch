@@ -72,7 +72,8 @@ def database_urls() -> Iterator[dict[str, str]]:
         with admin.connect() as conn:
             conn.execute(
                 text(
-                    "select pg_terminate_backend(pid) from pg_stat_activity where datname = :n and pid <> pg_backend_pid()"
+                    "select pg_terminate_backend(pid) from pg_stat_activity "
+                    "where datname = :n and pid <> pg_backend_pid()"
                 ),
                 {"n": name},
             )

@@ -71,7 +71,8 @@ def rollback(site: BlobStore, build_id: str) -> dict[str, Any]:
     if blob is None:
         raise SystemExit(f"build {build_id} not found (available: {', '.join(list_builds(site)) or 'none'})")
     site.put(MANIFEST_KEY, blob.data, content_type="application/json", cache_control=SHORT)
-    return json.loads(blob.data)
+    manifest: dict[str, Any] = json.loads(blob.data)
+    return manifest
 
 
 def main() -> int:

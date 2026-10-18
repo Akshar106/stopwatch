@@ -21,6 +21,7 @@ SECRET_FIELDS: tuple[str, ...] = (
     "session_secret",
     "vapid_private_key",
     "anthropic_api_key",
+    "origin_verify_secret",
 )
 
 
@@ -56,6 +57,10 @@ class Settings(BaseSettings):
     anthropic_api_key: SecretStr | None = None
     ask_model: str = "claude-opus-5-5"  # set ASK_MODEL=claude-haiku-5-5 to stretch the monthly cap
     ask_monthly_cap_usd: float = 1.0
+
+    # Shared secret CloudFront adds as X-Origin-Verify on /api/* requests; the API rejects requests without it
+    # in staging/prod so nobody can call API Gateway directly with forged viewer headers.
+    origin_verify_secret: SecretStr | None = None
 
     notify_function_name: str | None = None
     ssm_prefix: str | None = None

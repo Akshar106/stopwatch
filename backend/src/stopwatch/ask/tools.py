@@ -100,7 +100,7 @@ class PublishedData:
     def agency(self) -> dict[str, Any]:
         for a in self.manifest["agencies"]:
             if a["id"] == self.agency_id:
-                return a
+                return dict(a)
         raise LookupError(self.agency_id)
 
     def stops(self) -> list[dict[str, Any]]:
@@ -140,7 +140,7 @@ def route_summary(data: PublishedData, route_id: str) -> dict[str, Any]:
     except LookupError:
         known = [r["id"] for r in data.routes()][:40]
         return {"error": f"unknown route {route_id!r}", "some_known_routes": known}
-    summary = next((r["summary"] for r in data.routes() if r["id"] == route_id), {})
+    summary: dict[str, Any] = next((r["summary"] for r in data.routes() if r["id"] == route_id), {})
     return {
         "route_id": route_id,
         "name": detail["route"].get("long_name") or detail["route"].get("short_name"),

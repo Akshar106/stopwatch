@@ -6,6 +6,7 @@ tests in tests/integration/test_rollup_parity.py) and docs/methodology.md.
 
 from __future__ import annotations
 
+import functools
 import itertools
 import json
 import re
@@ -73,6 +74,10 @@ def _representative_dates(end: date, start: date) -> dict[str, date]:
         reps.setdefault(dt, d)
         d -= timedelta(days=1)
     return reps
+
+
+def _stop_sort_key(order: dict[tuple[Any, ...], int], rid: str, did: int, sid: str) -> tuple[int, str]:
+    return (order.get((rid, did, sid), 9999), sid)
 
 
 def _list_sql(paths: list[Path]) -> str:
@@ -165,9 +170,7 @@ def compute_agency(
 
     edges = HISTOGRAM_EDGES_S
     buckets = [f"count(*) FILTER (WHERE delay_s < {edges[0]})"]
-    buckets += [
-        f"count(*) FILTER (WHERE delay_s >= {lo} AND delay_s < {hi})" for lo, hi in itertools.pairwise(edges)
-    ]
+    buckets += [f"count(*) FILTER (WHERE delay_s >= {lo} AND delay_s < {hi})" for lo, hi in itertools.pairwise(edges)]
     buckets += [f"count(*) FILTER (WHERE delay_s >= {edges[-1]})"]
     stats_sql = (
         f"count(*) AS n, quantile_cont(delay_s, 0.5) AS p50, quantile_cont(delay_s, 0.9) AS p90, "
@@ -320,7 +323,9 @@ def compute_agency(
         "to": end.isoformat(),
         "days": 0,
     }
-    window_obj["days"] = (date.fromisoformat(window_obj["to"]) - date.fromisoformat(window_obj["from"])).days + 1
+    window_obj["days"] = (
+        date.fromisoformat(str(window_obj["to"])) - date.fromisoformat(str(window_obj["from"]))
+    ).days + 1
     route_summaries = []
     skipped_routes = []
     for rid, info in route_info.items():
@@ -337,7 +342,7 @@ def compute_agency(
         for did in (0, 1):
             stops_in_dir = sorted(
                 {sid for (d2, sid) in by_route[rid] if d2 == did},
-                key=lambda s, did=did: (stop_order.get((rid, did, s), 9999), s),
+                key=functools.partial(_stop_sort_key, stop_order, rid, did),
             )
             if not stops_in_dir:
                 continue
