@@ -91,7 +91,7 @@ Every arrow that crosses a boundary has controls: validation, authentication, le
 
 | Function | Allowed |
 |---|---|
-| `ingest-tick` | `s3:GetObject/PutObject` on `state/*`, `events/*`, `raw/*`; read the agency config parameter; `lambda:InvokeFunction` on `notify` (should). **No database credentials.** |
+| `ingest-tick` | lake: `Get/PutObject` on `state/*`, `events/*`, `raw/*` and `GetObject` on `config/alert_rules/*`; site: `PutObject` on `data/v1/health/*`; `lambda:InvokeFunction` on `notify` (should). **No database credentials.** (Authoritative list: docs/contracts.md §1.) |
 | `daily-rollup` | Read `events/*`, `schedule/*`, `curated/*`; write `curated/*`, `public/*`; read the app DB parameter |
 | `schedule-import` | Write `schedule/*`; read the owner DB parameter for the catalog upsert |
 | `api` | Read app DB, OAuth, session-key, VAPID and origin-verify parameters; S3 limited to writing `config/alert_rules/*` (alert snapshot) and reading published `data/v1/*` (Ask). |
@@ -113,7 +113,7 @@ These are mapped by risk name from the OWASP Top 10 and the OWASP API Security T
 | Vulnerable or outdated components / supply chain | PyPI, npm, Actions | Lockfiles with hashes (uv, npm); Dependabot; `pip-audit` + `npm audit` + OSV-Scanner; Actions pinned to commit SHAs | CI gates (high or critical → fail) |
 | Software and data integrity failures | Deploy pipeline, published data | OIDC deploy (no static keys); protected `prod` environment with required approval; data-quality gate before the manifest swap | Branch protection; rollup gate tests |
 | Logging and monitoring failures | Everything | Structured logs with request IDs; audit log; alarms (see [06](06-quality-operations.md)) | Alarm tests in staging (forced failures) |
-| SSRF / unsafe consumption of APIs | Agency feeds | Feed URLs come from config, not user input; no redirects to other hosts; 5 MB body cap; 3 s/10 s timeouts; protobuf parse errors contained; value sanity checks (timestamps within ±1 day, sequence ranges) | Fuzz tests with malformed or oversized feeds |
+| SSRF / unsafe consumption of APIs | Agency feeds | Feed URLs come from config, not user input; no redirects to other hosts; 8 MiB body cap; 3 s/10 s timeouts; protobuf parse errors contained; value sanity checks (timestamps within ±1 day, sequence ranges) | Fuzz tests with malformed or oversized feeds |
 | Unrestricted resource consumption | API, demo, Ask, cost | API Gateway throttles; per-user and per-IP counters; reserved concurrency; Ask quotas and a $ cap; budgets | Load test confirms throttling at limits |
 | Mass assignment / excessive data exposure | Commute PATCH, `/me` | Explicit Pydantic input and output models; no ORM objects returned | Schema tests; OpenAPI diff |
 
@@ -155,7 +155,7 @@ Principles:
   - Signed-in, non-demo users only, 20 questions a day each.
   - Responses cached by normalized question + `build_id`.
   - A global monthly cap of **$1** tracked in `ask_usage`. At the cap, the feature switches to a guided form with no LLM.
-  - The smallest model tier that passes the evals.
+  - Model is configurable (`ASK_MODEL`, default `claude-opus-5-5`); switching to a cheaper tier such as `claude-haiku-5-5` stretches the same $1 cap, and the eval harness (`evals/ask/run_evals.py`) checks quality before any switch.
 
 ## 7. Rate limiting and abuse
 
@@ -248,12 +248,12 @@ There is **no Redis**, because reads are already served from the CDN and the dyn
 | Data | Protection | RPO | RTO |
 |---|---|---|---|
 | Postgres | Neon point-in-time restore (free-plan window is short; check current limits) + **nightly `pg_dump`** from GitHub Actions to a versioned S3 prefix (30-day lifecycle) | ≤ 24 h (≤ hours via PITR) | < 1 h |
-| Curated Parquet, published builds | S3 versioning on `curated/` and `public/`; 14 builds retained | 0 for committed data | Minutes (manifest swap / version restore) |
+| Curated Parquet, published builds | S3 versioning on both buckets (versioning is per bucket; lifecycle rules expire noncurrent versions per prefix — 1 day for the per-minute `state/` object, 30 days elsewhere); 14 builds retained | 0 for committed data | Minutes (manifest swap / version restore) |
 | Real-time observations | **Irreplaceable** (the feed is ephemeral). Protected by the ingest SLO; gaps are visible, never back-filled with guesses. Subway gaps can be optionally back-filled from LAMP | 1 min per missed tick | — |
 | Infrastructure | Terraform in git; state in a versioned bucket | — | < 1 h (`make up`) |
 | Secrets | SSM; documented re-creation steps | — | < 30 min |
 
-**Restore drill:** quarterly, restore the latest dump into a Neon branch, run the integration suite against it, and record the timing in `docs/runbooks/restore-drill.md`.
+**Restore drill:** quarterly, restore the latest dump into a Neon branch, run `make verify-db DATABASE_URL=<branch>` against it (connectivity, migrations at head, tables, append-only audit log), and record the timing in `docs/runbooks/restore-drill.md`.
 
 ## 11. Performance goals (measurable)
 
