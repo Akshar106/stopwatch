@@ -126,8 +126,9 @@ def run_tick(agency: AgencyConfig, deps: TickDeps) -> TickResult:
         result.error = f"fetch: {exc}"
     else:
         try:
-            vp: bytes | None = deps.fetch(agency.vehicle_positions_url, agency.max_feed_bytes)
-            vehicles = parse_vehicle_positions(vp)
+            vp_bytes = deps.fetch(agency.vehicle_positions_url, agency.max_feed_bytes)
+            vehicles = parse_vehicle_positions(vp_bytes)
+            vp: bytes | None = vp_bytes
         except (FetchError, FeedParseError):
             vp, vehicles = None, ParsedVehicles(feed_ts=cur.feed_ts, stopped=[], count=0)
         result.feed_ts = cur.feed_ts

@@ -6,12 +6,13 @@ A directory holds pairs ``{feed_ts}-tu.pb`` / ``{feed_ts}-vp.pb`` as written by 
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import sys
 from collections import Counter
 from pathlib import Path
 
-from stopwatch.core.inference import ObservedEvent, Snapshot, infer_events, update_stopped_index
+from stopwatch.core.inference import ObservedEvent, Snapshot, TripKey, infer_events, update_stopped_index
 from stopwatch.platform.agencies import AgencyConfig
 from stopwatch.platform.blobstore import BlobStore
 from stopwatch.platform.http import FetchError
@@ -23,7 +24,7 @@ from .tick import TickDeps, TickResult, event_to_dict, run_tick
 def replay_directory(directory: Path) -> list[ObservedEvent]:
     stamps = sorted({int(p.name.split("-")[0]) for p in directory.glob("*-tu.pb")})
     prev: Snapshot | None = None
-    stopped: dict = {}
+    stopped: dict[tuple[TripKey, int], int] = {}
     events: list[ObservedEvent] = []
     for ts in stamps:
         cur = parse_trip_updates((directory / f"{ts}-tu.pb").read_bytes())
@@ -55,7 +56,9 @@ def replay_into_lake(directory: Path, agency: AgencyConfig, lake: BlobStore, sit
                 raise FetchError(f"no recorded payload for {url}")
             return payloads[url]
 
-        results.append(run_tick(agency, TickDeps(lake=lake, site=site, fetch=fetch, now=lambda ts=ts: ts + 5)))
+        results.append(
+            run_tick(agency, TickDeps(lake=lake, site=site, fetch=fetch, now=functools.partial(int, ts + 5)))
+        )
     return results
 
 

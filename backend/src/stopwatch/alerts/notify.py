@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import Connection, delete, select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from stopwatch.platform import dbschema as t
@@ -50,7 +50,6 @@ def deliver(conn_factory: Callable[[], Any], payload: dict[str, Any], send: Send
         stats["candidates"] += 1
         key = f"{c['rule_id']}:{c['service_date']}:{c['trip_id']}:{c['kind']}"
         with conn_factory() as conn:
-            conn: Connection
             notif_id = conn.execute(
                 pg_insert(t.notifications)
                 .values(alert_rule_id=c["rule_id"], dedupe_key=key, status="pending")

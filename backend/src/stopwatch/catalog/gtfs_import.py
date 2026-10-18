@@ -116,7 +116,8 @@ def _build_tables(src: Path, out: Path, route_types: tuple[int, ...]) -> dict[st
     counts: dict[str, int] = {}
     for table in ("routes", "trips", "stop_times", "stops", "calendar", "calendar_dates"):
         con.execute(f"COPY {table} TO '{(out / f'{table}.parquet').as_posix()}' (FORMAT parquet, COMPRESSION zstd)")
-        counts[table] = int(con.execute(f"SELECT count(*) FROM {table}").fetchone()[0])  # type: ignore[index]
+        row = con.execute(f"SELECT count(*) FROM {table}").fetchone()
+        counts[table] = int(row[0]) if row else 0
 
     dates = con.execute("""
         SELECT least(min(start_date), (SELECT min(date) FROM calendar_dates)),
