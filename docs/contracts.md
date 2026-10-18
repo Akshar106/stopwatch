@@ -1,0 +1,278 @@
+# Interface contracts
+
+The precise interfaces between the pipeline, the API, the frontend and the infrastructure. The design
+rationale lives in [04-architecture.md](04-architecture.md). **This file is normative: change it in the
+same PR as the code that changes the interface.**
+
+## 1. Runtime entry points (AWS Lambda, python3.13, arm64)
+
+| Function | Handler | Package | Memory / timeout | Concurrency | Trigger |
+|---|---|---|---|---|---|
+| `api` | `stopwatch.api.lambda_handler.handler` | `dist/api.zip` | 512 MB / 15 s | reserved 10 | API Gateway HTTP API (`/api/{proxy+}`) |
+| `ingest-tick` | `stopwatch.jobs.ingest_tick.handler` | `dist/jobs.zip` | 512 MB / 50 s | reserved 1 | Scheduler `rate(1 minute)` |
+| `schedule-import` | `stopwatch.jobs.schedule_import.handler` | `dist/jobs.zip` | 1536 MB / 300 s, /tmp 2048 MB | reserved 1 | Scheduler `cron(30 3 * * ? *)` America/New_York |
+| `daily-rollup` | `stopwatch.jobs.daily_rollup.handler` | `dist/jobs.zip` | 2048 MB / 600 s, /tmp 4096 MB | reserved 1 | Scheduler `cron(15 4 * * ? *)` America/New_York |
+| `maintenance` | `stopwatch.jobs.maintenance.handler` | `dist/jobs.zip` | 256 MB / 120 s | reserved 1 | Scheduler `cron(0 5 * * ? *)` America/New_York |
+| `notify` | `stopwatch.jobs.notify.handler` | `dist/jobs.zip` | 256 MB / 30 s | reserved 2 | Async invoke from `ingest-tick`; 2 retries; on-failure → SQS DLQ |
+| `lamp-validate` | `stopwatch.jobs.lamp_validate.handler` | `dist/jobs.zip` | 1024 MB / 300 s | reserved 1 | Scheduler `cron(0 6 ? * MON *)` America/New_York |
+
+**Packages.**
+
+- `api.zip` = the project plus the `ask` extra (no DuckDB).
+- `jobs.zip` = the project plus the `jobs` and `alerts` extras.
+
+Both are built for `aarch64-manylinux2014` by `scripts/package_lambda.sh`. Job handlers accept the Scheduler payload `{}` or `{"date": "YYYY-MM-DD"}` (rollup and import backfills) and return a JSON-serializable summary.
+
+### Environment variables (all functions)
+
+| Variable | Example | Notes |
+|---|---|---|
+| `STOPWATCH_ENV` | `prod` | `local`, `test`, `staging`, `prod` |
+| `STOPWATCH_VERSION` | git SHA | shown in `/api/v1/healthz` |
+| `LAKE_URL` | `s3://stopwatch-prod-lake` | private data lake |
+| `SITE_URL` | `s3://stopwatch-prod-site` | SPA + published data (CloudFront origin) |
+| `AGENCIES` | `mbta` | comma-separated ids from `platform/agencies.py` |
+| `PUBLIC_BASE_URL` | `https://dxxxx.cloudfront.net` | OIDC redirect base, links |
+| `SSM_PREFIX` | `/stopwatch/prod` | secrets loaded at cold start |
+| `INGEST_ENABLED`, `ALERTS_ENABLED`, `ASK_ENABLED`, `DEMO_ENABLED` | `true` / `false` | feature flags |
+| `NOTIFY_FUNCTION_NAME` | `stopwatch-prod-notify` | ingest only |
+| `POWERTOOLS_SERVICE_NAME`, `POWERTOOLS_METRICS_NAMESPACE`, `LOG_LEVEL` | `stopwatch`, `Stopwatch`, `INFO` | |
+
+### SSM parameters (`SecureString` under `$SSM_PREFIX/`)
+
+`database_url` (app role), `database_owner_url` (migrations/maintenance), `google_client_id`, `google_client_secret`, `session_secret`, `vapid_public_key`, `vapid_private_key`, `anthropic_api_key`. Terraform creates them with the value `unset`; the operator sets real values with the CLI. **Secrets never go in Terraform state.**
+
+### IAM (least privilege)
+
+| Function | S3 | Other |
+|---|---|---|
+| `api` | lake: `PutObject` `config/alert_rules/*` | SSM read |
+| `ingest-tick` | lake: `Get/PutObject` `state/*`, `events/*`, `raw/*`; `GetObject` `config/alert_rules/*`; site: `PutObject` `data/v1/health/*` | `lambda:InvokeFunction` on `notify` |
+| `schedule-import` | lake: `Get/PutObject` + `ListBucket` on `schedule/*` | SSM read |
+| `daily-rollup` | lake: `Get` `events/*`, `schedule/*`, `curated/*`; `Put` `curated/*`, `reports/*`; `ListBucket`; site: `Get/Put` `data/v1/*`, `ListBucket` | SSM read |
+| `maintenance` | lake: `PutObject` `config/alert_rules/*`; `ListBucket` `backups/*` | SSM read |
+| `notify` | — | SSM read |
+| `lamp-validate` | lake: `Get` `curated/*`, `Put` `reports/lamp/*`; site: `Put` `data/v1/validation/*` | SSM read |
+
+## 2. Blob key layout
+
+**Lake** (`LAKE_URL`, private):
+
+```text
+state/{agency}/latest.json.gz                                   ingest state (CAS via If-Match)
+events/agency={agency}/dt={YYYY-MM-DD UTC}/{HHMM}.jsonl.gz      minute event batches (14-day lifecycle)
+raw/agency={agency}/dt={YYYY-MM-DD}/{HH}-{tu|vp}.pb             hourly raw samples (7-day lifecycle)
+raw/agency={agency}/errors/{timestamp}-{tu|vp}.pb               payloads that failed to parse
+schedule/agency={agency}/current.json                           {"version": ..., "versions": [...]}
+schedule/agency={agency}/version={v}/{table}.parquet            routes, stops, trips, stop_times, calendar, calendar_dates
+schedule/agency={agency}/version={v}/meta.json                  feed_info, etag, last_modified, start/end dates
+curated/arrivals/agency={agency}/service_date={YYYY-MM-DD}/part-0.parquet
+reports/quality/agency={agency}/service_date={YYYY-MM-DD}.json
+reports/lamp/agency={agency}/week={YYYY-MM-DD}.json
+config/alert_rules/{agency}.json                                active alert rules snapshot (§5)
+backups/postgres/{YYYY-MM-DD}.dump                              nightly pg_dump (GitHub Actions)
+```
+
+**Site** (`SITE_URL`, served by CloudFront at `/`):
+
+```text
+index.html, assets/*                                            SPA (index.html no-cache; assets immutable)
+data/v1/manifest.json                                           Cache-Control: public, max-age=60
+data/v1/health/{agency}.json                                    max-age=60, written every 5 min by ingest
+data/v1/builds/{build_id}/{agency}/stops.json                   immutable (max-age=31536000, immutable)
+data/v1/builds/{build_id}/{agency}/routes.json                  immutable
+data/v1/builds/{build_id}/{agency}/routes/{route_id}.json       immutable; route_id URL-encoded in the key
+data/v1/builds/{build_id}/{agency}/coverage.json                immutable
+data/v1/validation/{agency}.json                                max-age=3600 (LAMP accuracy report)
+```
+
+Locally the API serves the site store's `data/` directory at `/data`, and Vite proxies `/api` and `/data` to `VITE_PROXY_TARGET` (default `http://localhost:8000`).
+
+## 3. Published data (TypeScript notation; all times ISO-8601 UTC unless noted)
+
+```ts
+type DayType = "wkd" | "sat" | "sun";
+
+interface Manifest {
+  schema_version: 1;
+  build_id: string;                    // e.g. "20261019T081502Z"
+  generated_at: string;
+  agencies: AgencyManifest[];
+}
+interface AgencyManifest {
+  id: string; name: string; timezone: string;
+  live_api: "mbta-v3" | null;          // browser may call https://api-v3.mbta.com directly
+  window: { from: string; to: string; days: number };   // service dates (YYYY-MM-DD) covered by cells
+  on_time_definition_s: [number, number];               // [-60, 300]
+  histogram_edges_s: number[];                          // [-60, 60, 180, 300, 600, 1200] -> 7 buckets
+  min_samples: number;                                  // cells with n < min_samples have null stats
+  paths: {
+    stops: string;                     // "/data/v1/builds/{build}/mbta/stops.json"
+    routes: string;
+    route_template: string;            // ".../routes/{route_id}.json"; substitute encodeURIComponent(route_id)
+    coverage: string;
+    health: string;                    // "/data/v1/health/mbta.json"
+    validation: string | null;
+  };
+}
+
+interface StopsIndex { agency_id: string; stops: StopEntry[] }
+interface StopEntry {
+  id: string; name: string; lat: number; lon: number;
+  parent: string | null;               // parent station id (subway platforms)
+  routes: string[];                    // route ids serving this stop (in-scope route types only)
+}
+
+interface RoutesList { agency_id: string; routes: RouteSummary[] }
+interface RouteInfo {
+  id: string; short_name: string | null; long_name: string | null;
+  type: number;                        // GTFS route_type
+  color: string | null; text_color: string | null; sort_order: number | null;
+}
+interface Stats { n: number; on_time_pct: number | null; p50_s: number | null; p90_s: number | null }
+interface RouteSummary extends RouteInfo { summary: Stats & { coverage_pct: number | null } }
+
+interface RouteDetail {
+  agency_id: string;
+  route: RouteInfo;
+  window: { from: string; to: string; days: number };
+  on_time_definition_s: [number, number];
+  histogram_edges_s: number[];
+  min_samples: number;
+  directions: Direction[];
+  trend: TrendPoint[];                 // weekly, route-level, oldest first (up to 8 weeks)
+  coverage: { observed_trips: number; scheduled_trips: number; coverage_pct: number | null };
+}
+interface Direction { direction_id: 0 | 1; headsign: string | null; stops: StopCells[] }
+interface StopCells {
+  stop_id: string; name: string; order: number;
+  summary: Stats;
+  cells: Cell[];                       // only (day, hour) combinations with scheduled service
+}
+interface Cell {
+  day: DayType;
+  hour: number;                        // 0-23, local clock hour of the *scheduled* arrival
+  n: number;                           // observed arrivals
+  p50_s: number | null; p90_s: number | null;
+  on_time_pct: number | null; early_pct: number | null;
+  canceled: number; skipped: number;
+  sched_headway_s: number | null;      // median scheduled headway at this stop/hour
+  ewt_s: number | null;                // excess wait time; only when sched_headway_s <= frequent threshold
+  hist: number[];                      // counts per histogram bucket (length = edges.length + 1)
+}
+interface TrendPoint { week_start: string; n: number; on_time_pct: number | null; p50_s: number | null; p90_s: number | null }
+
+interface Coverage { agency_id: string; days: { service_date: string; scheduled_trips: number;
+  observed_trips: number; canceled_trips: number; coverage_pct: number | null }[] }
+
+interface Health {
+  agency_id: string; generated_at: string;
+  status: "ok" | "degraded" | "stale" | "unknown";
+  last_success_at: string | null;
+  feed_timestamp: string | null; feed_age_s: number | null;
+  ticks_last_hour: { ok: number; failed: number; not_advanced: number; expected: 60 };
+  recent_gaps: { start: string; end: string; minutes: number }[];   // last 7 days, gaps >= 3 min
+}
+
+interface Validation { agency_id: string; generated_at: string; week: string; sample: number;
+  median_abs_error_s: number | null; p90_abs_error_s: number | null; by_route: Record<string, { n: number; median_abs_error_s: number }> }
+```
+
+**Health status rule:**
+
+- `stale`: last success more than 15 min ago.
+- `degraded`: feed age over 300 s, or any failed ticks in the last 10 minutes.
+- `ok`: otherwise.
+- `unknown`: no data yet.
+
+## 4. Dynamic API (`/api/v1`)
+
+**Common conventions.**
+
+- JSON bodies. Errors are `application/problem+json`: `{type, title, status, detail?, errors?}`, where `errors` is a list of `{field, message}` for 422.
+- Every response echoes `X-Request-Id`.
+- **The browser sends `X-Requested-With: stopwatch` on every API request.** Requests without it that change state are rejected (403), which forces a CORS preflight for cross-site attackers.
+- **Requests that change state while signed in must also send `X-CSRF-Token`.** The token comes from `GET /me` or the login/demo response.
+- **Session cookie:** `__Host-sw_session` (Secure; HttpOnly; SameSite=Lax; Path=/) in staging/prod; `sw_session` without Secure in local/test.
+- **OIDC transaction cookie:** `sw_oidc`, an HMAC-signed blob holding state, nonce, PKCE verifier and `next`. 10-minute TTL, Path=/api/v1/auth.
+
+### User and commute shapes
+
+```ts
+interface User { id: string; display_name: string | null; email: string | null; is_demo: boolean;
+                 demo_expires_at: string | null; created_at: string }
+interface MeResponse { user: User; csrf_token: string; features: { alerts: boolean; ask: boolean; google_login: boolean } }
+
+type Weekday = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+interface Commute {
+  id: string; agency_id: string; route_id: string; direction_id: 0 | 1; stop_id: string;
+  label: string | null; days: Weekday[];            // stored as days_mask, bit 0 = Monday
+  window_start: string; window_end: string;          // "HH:MM", local agency time, end > start
+  created_at: string; updated_at: string;
+  alert: AlertRule | null;
+}
+interface AlertRule { threshold_min: number; notify_cancellations: boolean; active: boolean }
+```
+
+### Endpoints
+
+| Method & path | Auth | Request | Response |
+|---|---|---|---|
+| `GET /healthz` | — | — | `200 {"status":"ok","version":"…"}` |
+| `GET /config` | — | — | `200 {"features":{"alerts","ask","google_login","demo"},"vapid_public_key":string\|null}` |
+| `GET /auth/login?next=/path` | — | — | `302` → Google (`next` must be a same-site relative path) |
+| `GET /auth/callback` | — | Google redirect | `302` → `next` (or `/signin?error=<code>`) + session cookie |
+| `POST /auth/demo` | — (needs X-Requested-With) | — | `201 MeResponse` + session cookie; `429` if over the limit; `404` if demo disabled |
+| `POST /auth/logout` | session | — | `204`, cookie cleared |
+| `POST /auth/logout-all` | session | — | `204`, all of the user's sessions deleted |
+| `GET /me` | session | — | `200 MeResponse`; `401` if not signed in |
+| `GET /me/export` | session | — | `200 {exported_at, user, commutes, sessions:[{created_at,last_seen_at,user_agent}], push_subscriptions:[{id,created_at}], audit:[{at,action,outcome}]}` |
+| `DELETE /me` | session | — | `204`; cascade delete; audit record kept (pseudonymous) |
+| `GET /commutes` | session | — | `200 {"commutes": Commute[]}` |
+| `POST /commutes` | session | `{agency_id, route_id, direction_id, stop_id, label?, days, window_start, window_end}` + optional `Idempotency-Key` | `201 Commute`; `409` limit (20, demo 3); `422` validation (route must serve that stop in that direction per `route_stops`) |
+| `PATCH /commutes/{id}` | owner | any subset of the POST fields | `200 Commute`; `404` if not yours |
+| `DELETE /commutes/{id}` | owner | — | `204`; `404` if not yours |
+| `PUT /commutes/{id}/alert` | owner, non-demo | `{threshold_min: 3-60, notify_cancellations}` | `200 AlertRule`; republishes the alert snapshot |
+| `DELETE /commutes/{id}/alert` | owner | — | `204`; republishes the snapshot |
+| `POST /push-subscriptions` | session, non-demo | `{endpoint, keys:{p256dh, auth}}` (browser PushSubscription JSON) | `201 {"id"}`; republishes the snapshot |
+| `DELETE /push-subscriptions/{id}` | owner | — | `204` |
+| `POST /ask` | session, non-demo | `{question: string (≤ 300 chars)}` | `200 AskResponse`; `429` quota; `503` if disabled |
+
+```ts
+interface AskResponse {
+  answer: string | null;               // null when the fallback is used
+  fallback: boolean;                   // true → show the guided form
+  reason: string | null;               // "disabled" | "cap_reached" | "ungrounded" | "error" | null
+  facts: { label: string; value: string; source: string }[];   // numbers backing the answer
+  links: { label: string; href: string }[];                    // e.g. route/stop pages
+}
+```
+
+Rate limits are listed in [04 §8.2](04-architecture.md); the application enforces them with `rate_limit_counters`.
+
+## 5. Alerts (should)
+
+**Snapshot** (lake `config/alert_rules/{agency}.json`). Written by the API on every rule or subscription change and reconciled nightly by `maintenance`. It contains only active rules of non-demo users with at least one push subscription, and **no user identifiers**.
+
+```json
+{"agency_id": "mbta", "generated_at": "…", "rules": [
+  {"rule_id": "uuid", "route_id": "1", "direction_id": 0, "stop_id": "64", "days_mask": 31,
+   "window_start": "07:30", "window_end": "08:30", "threshold_min": 10, "notify_cancellations": true}]}
+```
+
+**Notify payload** (async invoke from `ingest-tick`):
+
+```json
+{"agency_id": "mbta", "candidates": [
+  {"rule_id": "uuid", "kind": "delay", "service_date": "2026-10-19", "trip_id": "…", "route_id": "1",
+   "stop_id": "64", "scheduled_at": "…", "predicted_at": "…", "delay_s": 720}]}
+```
+
+The dedupe key is `{rule_id}:{service_date}:{trip_id}:{kind}`, enforced by `notifications.dedupe_key unique`.
+
+## 6. Database
+
+The schema is in `backend/migrations/versions/0001_initial_schema.py`. Query helpers are SQLAlchemy Core tables in `stopwatch/platform/dbschema.py`.
+
+- The runtime connects as a member of `stopwatch_app_role`: DML on app tables; **insert and select only** on `audit_log`.
+- Repository functions for user-owned data **must** take `owner_id` and filter on it.

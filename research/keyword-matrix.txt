@@ -1,0 +1,74 @@
+Sample: 91 postings / 18 companies (tier A: 28 postings / 9 cos)
+category                  term                             co-wtd  posts  #cos | A co-wtd A #cos
+Languages                 Python                              52%    51%  16/18 |      74%   8/9
+Languages                 Java                                28%    45%  10/18 |      54%   5/9
+Languages                 Go                                  26%    34%  10/18 |      60%   6/9
+Languages                 TypeScript                          38%    32%  11/18 |      44%   5/9
+Languages                 JavaScript                          34%    24%  11/18 |      70%   7/9
+Languages                 C++                                 17%    37%   6/18 |      43%   4/9
+Languages                 C#/.NET                              7%    22%   3/18 |      19%   2/9
+Languages                 Rust                                 4%    13%   3/18 |       8%   1/9
+Languages                 Kotlin                               2%     1%   1/18 |       4%   1/9
+Languages                 Scala                                1%     2%   1/18 |      11%   1/9
+Languages                 Ruby                                 2%     5%   2/18 |      22%   2/9
+Languages                 SQL                                 13%    15%   5/18 |       8%   1/9
+Languages                 Swift                                3%     2%   2/18 |      11%   1/9
+Frameworks                React                               32%    18%  10/18 |      39%   4/9
+Frameworks                Node.js                             16%     8%   5/18 |      22%   2/9
+Frameworks                Spring                               1%     1%   1/18 |       1%   1/9
+Frameworks                Django/Flask/FastAPI                 9%     3%   3/18 |      11%   1/9
+Frameworks                Rails                                0%     0%   0/18 |       0%   0/9
+Frameworks                GraphQL                              7%     4%   2/18 |       0%   0/9
+Frameworks                gRPC                                 1%     3%   1/18 |       0%   0/9
+Frameworks                Next.js                              6%     1%   1/18 |       0%   0/9
+Databases & data          SQL / relational                    40%    26%  11/18 |      42%   4/9
+Databases & data          PostgreSQL                          21%     9%   5/18 |      22%   2/9
+Databases & data          MySQL                               13%     5%   4/18 |      19%   2/9
+Databases & data          NoSQL                               14%    19%   6/18 |      16%   3/9
+Databases & data          Redis/caching                       15%    10%   8/18 |       1%   1/9
+Databases & data          Kafka/queues/streaming              12%     8%   6/18 |       1%   1/9
+Databases & data          Spark/data pipelines                17%    21%   8/18 |      17%   3/9
+Cloud & infra             AWS                                 23%    35%   7/18 |      10%   1/9
+Cloud & infra             GCP                                 12%     7%   4/18 |       0%   0/9
+Cloud & infra             Azure                                7%     5%   3/18 |       0%   0/9
+Cloud & infra             Kubernetes                          18%    11%   6/18 |       1%   1/9
+Cloud & infra             Docker/containers                   11%    11%   6/18 |       0%   0/9
+Cloud & infra             Terraform/IaC                        6%     8%   4/18 |       0%   0/9
+Cloud & infra             Cloud (any)                         35%    48%  11/18 |      21%   2/9
+APIs & architecture       APIs                                40%    27%  12/18 |      26%   3/9
+APIs & architecture       REST                                 6%     7%   4/18 |       1%   1/9
+APIs & architecture       Microservices                       10%    14%   6/18 |      10%   2/9
+APIs & architecture       Distributed systems                 27%    40%   9/18 |      30%   4/9
+APIs & architecture       Scalability                         80%    92%  16/18 |      85%   9/9
+APIs & architecture       System design/architecture          44%    49%  13/18 |      25%   3/9
+APIs & architecture       Reliability/availability            62%    67%  15/18 |      60%   6/9
+APIs & architecture       Performance/latency                 55%    47%  14/18 |      28%   4/9
+Testing & quality         Testing (any)                       44%    44%  12/18 |      31%   4/9
+Testing & quality         Unit/integration tests              44%    31%  14/18 |      31%   5/9
+Testing & quality         Code quality/maintainability        41%    37%  11/18 |      36%   4/9
+Security & privacy        Security (any)                      34%    42%  11/18 |      33%   4/9
+Security & privacy        Privacy/compliance                  12%    14%   6/18 |       3%   1/9
+Security & privacy        Auth/identity                       11%    14%   6/18 |       0%   0/9
+DevOps & delivery         CI/CD                                8%    16%   4/18 |       8%   1/9
+DevOps & delivery         Deploy/operate in production        75%    84%  17/18 |      70%   7/9
+DevOps & delivery         On-call                             12%    18%   9/18 |       8%   2/9
+DevOps & delivery         Git/version control                 14%    18%   4/18 |      14%   2/9
+Observability             Monitoring/observability            32%    47%  11/18 |      16%   3/9
+Observability             Debugging/troubleshooting           36%    48%  11/18 |      24%   3/9
+Fundamentals              CS fundamentals (DS&A)              34%    37%  11/18 |      49%   5/9
+Fundamentals              CS degree or equivalent             41%    49%  11/18 |      70%   8/9
+Fundamentals              OOP/design patterns                 12%    21%   4/18 |       8%   1/9
+Collaboration & product   Cross-functional collaboration      92%    92%  17/18 |      99%   9/9
+Collaboration & product   Communication                       56%    54%  14/18 |      57%   6/9
+Collaboration & product   Code review                         29%    38%   9/18 |      31%   3/9
+Collaboration & product   Design docs/technical specs         14%    11%   7/18 |       0%   0/9
+Collaboration & product   Ownership/end-to-end                76%    64%  17/18 |      69%   7/9
+Collaboration & product   Product/user focus                  83%    86%  17/18 |      93%   9/9
+Collaboration & product   Agile/scrum                          9%    20%   2/18 |       8%   1/9
+Collaboration & product   Learning/growth mindset             33%    36%  12/18 |      55%   6/9
+AI                        AI/ML/LLM (any)                     69%    66%  15/18 |      71%   7/9
+AI                        LLMs/agents specifically            34%    34%  11/18 |      26%   3/9
+AI                        AI coding tools                     33%    32%  11/18 |      42%   4/9
+
+Stated base pay (n=37): median low 145000, median high 179300
+Tier A pay: [('Affirm', 130000, 180000), ('Affirm', 130000, 180000), ('Affirm', 101000, 151000), ('Robinhood', 128000, 150000), ('Pinterest', 129022, 174283), ('Notion', 130000, 150000), ('Notion', 130000, 150000), ('Notion', 135000, 155000), ('Palantir', 135000, 145000), ('Palantir', 135000, 145000), ('Palantir', 135000, 145000), ('Palantir', 135000, 145000), ('Palantir', 145000, 155000), ('Palantir', 145000, 155000), ('Palantir', 145000, 155000), ('Palantir', 145000, 155000)]

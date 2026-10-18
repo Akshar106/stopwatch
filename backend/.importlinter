@@ -1,0 +1,35 @@
+[importlinter]
+root_package = stopwatch
+
+[importlinter:contract:core-is-pure]
+name = Domain core performs no I/O and depends on nothing else in the app
+type = forbidden
+source_modules =
+    stopwatch.core
+forbidden_modules =
+    stopwatch.platform
+    stopwatch.ingest
+    stopwatch.rollups
+    stopwatch.catalog
+    stopwatch.accounts
+    stopwatch.commutes
+    stopwatch.alerts
+    stopwatch.ask
+    stopwatch.api
+    stopwatch.jobs
+    boto3
+    botocore
+    httpx
+    sqlalchemy
+    psycopg
+    duckdb
+    fastapi
+
+[importlinter:contract:layers]
+name = Entry points sit above application modules, which sit above platform adapters
+type = layers
+layers =
+    stopwatch.api | stopwatch.jobs
+    stopwatch.accounts | stopwatch.commutes | stopwatch.alerts | stopwatch.ask | stopwatch.ingest | stopwatch.rollups | stopwatch.catalog
+    stopwatch.platform
+    stopwatch.core
