@@ -55,6 +55,8 @@ default-groups = ["dev"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Explicit so tests never depend on the editable-install .pth (macOS can flag it hidden; Python 3.13 skips hidden .pth files).
+pythonpath = ["src", "."]
 addopts = "-ra --strict-markers"
 markers = [
     "integration: needs a Postgres database (TEST_DATABASE_URL)",
