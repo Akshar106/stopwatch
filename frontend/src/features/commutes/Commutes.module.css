@@ -1,0 +1,94 @@
+.list {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  height: 100%;
+}
+
+.cardHeader {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.cardHeader p {
+  margin: 0;
+}
+
+.cardTitle {
+  font-size: 1.05rem;
+  margin: 0 0 0.15rem;
+}
+
+.when {
+  font-weight: 600;
+}
+
+.summary > :last-child {
+  margin-bottom: 0;
+}
+
+.summary :global(.stat-grid) {
+  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+  margin-bottom: var(--space-2);
+}
+
+.summary :global(.stat dd) {
+  font-size: 1.1rem;
+}
+
+.trend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: auto;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+.form {
+  margin-block: var(--space-4);
+}
+
+.formGrid {
+  display: grid;
+  gap: 0 var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+}
+
+.days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.days .check {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.presets {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-1);
+}
+
+.usage {
+  margin: 0;
+}

@@ -1,0 +1,33 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+
+.sm {
+  min-width: 1.75rem;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.75rem;
+}
+
+.md {
+  min-width: 2.25rem;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.875rem;
+}
+
+.lg {
+  min-width: 3rem;
+  padding: 0.45rem 0.85rem;
+  font-size: 1.15rem;
+}
+
+.unknown {
+  background: var(--surface-3);
+  color: var(--text);
+}

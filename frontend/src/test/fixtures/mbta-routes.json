@@ -1,0 +1,45 @@
+{
+  "agency_id": "mbta",
+  "routes": [
+    {
+      "id": "Red",
+      "short_name": "",
+      "long_name": "Red Line",
+      "type": 1,
+      "color": "DA291C",
+      "text_color": "FFFFFF",
+      "sort_order": 10010,
+      "summary": {"n": 72153, "on_time_pct": 94.6, "p50_s": 54, "p90_s": 156, "coverage_pct": 97.8}
+    },
+    {
+      "id": "1",
+      "short_name": "1",
+      "long_name": "Harvard Square - Nubian Station",
+      "type": 3,
+      "color": "FFC72C",
+      "text_color": "000000",
+      "sort_order": 50010,
+      "summary": {"n": 39135, "on_time_pct": 65.3, "p50_s": 177, "p90_s": 494, "coverage_pct": 96.2}
+    },
+    {
+      "id": "CT1",
+      "short_name": "CT1",
+      "long_name": "Central Square - BU Medical Center",
+      "type": 3,
+      "color": "FFC72C",
+      "text_color": "000000",
+      "sort_order": 50015,
+      "summary": {"n": 2210, "on_time_pct": 58.3, "p50_s": 194, "p90_s": 612, "coverage_pct": 74.5}
+    },
+    {
+      "id": "47",
+      "short_name": "47",
+      "long_name": "Central Square - Broadway Station",
+      "type": 3,
+      "color": "FFC72C",
+      "text_color": "000000",
+      "sort_order": 50470,
+      "summary": {"n": 18342, "on_time_pct": 64, "p50_s": 155, "p90_s": 520, "coverage_pct": 94.1}
+    }
+  ]
+}

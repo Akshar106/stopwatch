@@ -192,6 +192,8 @@ interface Validation { agency_id: string; generated_at: string; week: string; da
 **Common conventions.**
 
 - JSON bodies. Errors are `application/problem+json`: `{type, title, status, detail?, errors?}`, where `errors` is a list of `{field, message}` for 422.
+- Problem `type` is `urn:stopwatch:problem:<slug>`. Slugs: `unauthenticated` (401), `validation` (422), `csrf`, `missing-requested-with`, `origin`, `demo-restricted` (403), `rate-limited` (429, with `Retry-After`), `ask-quota` (429), `commute-limit`, `subscription-limit`, `demo-capacity` (409), `feature-disabled`, `demo-disabled`, `google-login-disabled` (404), `ask-disabled` (503). Unknown routes and objects you don't own return plain 404.
+- `/signin?error=` codes after a failed Google login: `invalid_state`, `access_denied`, `login_failed`.
 - Every response echoes `X-Request-Id`.
 - **The browser sends `X-Requested-With: stopwatch` on every API request.** Requests without it that change state are rejected (403), which forces a CORS preflight for cross-site attackers.
 - **Requests that change state while signed in must also send `X-CSRF-Token`.** The token comes from `GET /me` or the login/demo response.

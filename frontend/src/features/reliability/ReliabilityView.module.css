@@ -1,0 +1,38 @@
+.view {
+  margin-top: var(--space-4);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.metric {
+  margin: 0;
+}
+
+.window {
+  margin: 0;
+}
+
+.grid {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 52rem) {
+  .grid {
+    grid-template-columns: minmax(18rem, 28rem) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .grid > :last-child {
+    position: sticky;
+    top: var(--space-4);
+  }
+}

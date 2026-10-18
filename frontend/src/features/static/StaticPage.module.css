@@ -1,0 +1,16 @@
+.prose {
+  max-width: 44rem;
+}
+
+.prose h2 {
+  margin-top: var(--space-6);
+}
+
+.prose p,
+.prose li {
+  line-height: 1.65;
+}
+
+.prose table {
+  margin-bottom: var(--space-4);
+}
