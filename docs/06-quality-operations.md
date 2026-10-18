@@ -128,7 +128,7 @@ infra/
 | Setting | local | staging | prod | Source |
 |---|---|---|---|---|
 | `DATABASE_URL` | Compose Postgres | Neon `staging` branch | Neon `main` | SSM (cloud) / `.env` (local) |
-| `BLOBSTORE` | `file://./.localdata` | `s3://stopwatch-staging-data` | `s3://stopwatch-prod-data` | env var |
+| `LAKE_URL` / `SITE_URL` | `file://.localdata/lake` / `file://.localdata/site` | `s3://stopwatch-staging-lake` / `-site` | `s3://stopwatch-prod-lake` / `-site` | env var |
 | `INGEST_ENABLED` | true (worker) | false (toggle for tests) | true | Terraform variable → schedule state |
 | `ALERTS_ENABLED`, `ASK_ENABLED` | true | true | per rollout | env var (feature flag) |
 | `DEMO_ENABLED` | true | true | true | env var |
@@ -234,7 +234,7 @@ Runbooks live in `docs/runbooks/`. Each follows the same template: **symptoms �
   - Upstream outage → nothing to fix; confirm the banner shows and record the gap.
   - Our bug → roll back the alias: `make rollback FN=ingest-tick`.
   - State corruption → delete `state/mbta/latest.json.gz`. The next tick cold-starts safely.
-- **Verify:** `IngestSuccess` resumes; `health.json` updates within 2 minutes.
+- **Verify:** `IngestSuccess` resumes; `data/v1/health/mbta.json` shows the new success within 5 minutes (it is rewritten every 5 minutes).
 - **Follow up:** postmortem if it ran over 30 min; update the error-budget tracking.
 
 ### RB-2: Feed parse errors / schema drift
@@ -242,7 +242,7 @@ Runbooks live in `docs/runbooks/`. Each follows the same template: **symptoms �
 - **Symptoms:** `IngestErrorRate` alarm with `error_type=ParseError`, or the nightly drift-check issue.
 - **Diagnose:**
   1. Download the failing payload from `raw/errors/…`.
-  2. Run `make replay FILE=…` locally.
+  2. Run `make replay DIR=<directory with the captured .pb files>` locally.
   3. Compare against the MBTA GTFS-RT docs and changelog.
 - **Mitigate:**
   1. Patch the parser behind a test that uses the captured payload.
@@ -253,7 +253,7 @@ Runbooks live in `docs/runbooks/`. Each follows the same template: **symptoms �
 ### RB-3: Rollup failed or bad data published
 
 - **Symptoms:** `RollupLate` or `RollupLowCoverage`; a user reports implausible numbers.
-- **Diagnose:** the rollup's data-quality report in `public/_reports/{date}.json` (coverage, row deltas, null rates); ingest gaps for that service day.
+- **Diagnose:** the rollup's data-quality report in the lake at `reports/quality/agency=mbta/service_date={date}.json` (coverage, row deltas, null rates); ingest gaps for that service day.
 - **Mitigate:**
   - The gate failed → the previous build is already live. Fix and re-run: `make rollup DATE=…`.
   - Bad data slipped through → `make publish-rollback BUILD=<previous>` (manifest swap, effective within 60 s).

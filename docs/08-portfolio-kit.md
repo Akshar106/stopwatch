@@ -44,7 +44,7 @@ Topics: `gtfs-realtime`, `transit`, `fastapi`, `react`, `typescript`, `postgresq
 
 1. **Problem (15 s).** The real-time feed only contains future predictions. Served stops vanish, so the history riders need is never recorded.
 2. **Architecture (40 s).**
-   - A modular monolith in Python, deployed as several Lambda entry points from one artifact.
+   - A modular monolith in Python, deployed as several Lambda entry points from one codebase.
    - Every minute a scheduled function fetches the feed, diffs it against the previous snapshot stored in S3, and emits arrival events. It runs with concurrency 1 and saves its state with an S3 compare-and-swap write.
    - A daily DuckDB job compacts events to Parquet, joins the schedule, computes delay and headway metrics, and publishes immutable JSON behind CloudFront with an atomic manifest swap.
    - User features (sign-in, saved commutes) are a FastAPI app on Postgres (Neon).

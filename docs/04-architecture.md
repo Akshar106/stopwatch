@@ -166,7 +166,7 @@ flowchart LR
 - Application modules talk to each other only through their public `service.py` interfaces.
 - Only `platform` touches boto3, SQLAlchemy engines or httpx.
 
-Each entry point is a separate Lambda function **built from the same artifact**: different handler, different IAM role, different memory and timeout.
+Each entry point is a separate Lambda function **built from one codebase into two packages**: `api.zip` (no DuckDB, so API cold starts stay small) and `jobs.zip` (DuckDB + Web Push) — different handler, IAM role, memory and timeout per function (docs/contracts.md §1).
 
 ## 6. Data architecture
 
@@ -179,7 +179,7 @@ Each entry point is a separate Lambda function **built from the same artifact**:
 | Hourly raw snapshot samples | S3 `raw/agency=mbta/dt=…/hh.pb` | protobuf | 7 days | ~15 MB/day |
 | Curated arrivals | S3 `curated/arrivals/agency=mbta/service_date=…/part-0.parquet` | Parquet (zstd) | indefinitely | ~5 MB/day ≈ 1.8 GB/yr |
 | Schedule | S3 `schedule/agency=mbta/version=…/stop_times.parquet` + calendars | Parquet | last 12 versions | ~30 MB/version |
-| Published rollups | S3 `public/v1/{build_id}/…` served at `/data/v1/…` | JSON (gzip by CloudFront) | last 14 builds | ~15 MB/build |
+| Published rollups | Site bucket `data/v1/builds/{build_id}/{agency}/…` served at `/data/v1/…` | JSON (gzip by CloudFront) | last 14 builds | ~80 MB/build raw (route files compress ~60×) |
 | Users, sessions, commutes, audit, catalog, daily route metrics | Neon Postgres | relational | see [05](05-security-reliability.md) privacy table | < 100 MB |
 
 **Why split this way:** observations are append-only, high-volume and scanned in bulk, which is the columnar workload that Parquet and DuckDB are built for. User data is small, relational and transactional, which is what Postgres is for. Keeping the per-minute ingest path off Postgres also lets Neon **sleep**: waking it every minute would burn its 100 compute-hours/month free quota (a 0.25 CU compute running 24/7 is ~180 CU-hours).
@@ -367,7 +367,7 @@ create table ask_usage (
 | `first_seen_at`, `observed_at` | timestamp | for lineage and debugging |
 | `schedule_version`, `ingest_build` | string | lineage |
 
-**Published route file** `/data/v1/{build_id}/mbta/routes/{route_id}.json` (immutable, cached for 1 year). Example shape:
+**Published route file** `/data/v1/builds/{build_id}/mbta/routes/{route_id}.json` (immutable, cached for 1 year). Example shape:
 
 ```json
 {
@@ -397,7 +397,7 @@ The MBTA feed carries **future** predictions only. A stop's prediction disappear
 ```text
 tick(now):
   prev, etag ← S3.get(state)                       # previous snapshot index (None on first run)
-  tu, vp     ← fetch(TripUpdates), fetch(VehiclePositions)   # 3 s connect / 10 s read, ≤ 5 MB, ≤ 2 retries with jitter
+  tu, vp     ← fetch(TripUpdates), fetch(VehiclePositions)   # 3 s connect / 10 s read, ≤ 8 MiB, ≤ 2 retries with jitter
   if tu.header.timestamp ≤ prev.feed_ts: emit FeedNotAdvanced; return   # feed hasn't changed: no-op
   cur ← index(tu)                                   # {(trip_id, start_date): {stop_seq: (stop_id, t_pred, rel)}, status}
   for each trip in prev:
@@ -424,7 +424,7 @@ sequenceDiagram
   SCH->>ING: invoke (every minute)
   ING->>S3: GET state/mbta/latest.json.gz
   S3-->>ING: previous snapshot index + ETag
-  ING->>MBTA: GET TripUpdates.pb, VehiclePositions.pb (timeouts, 5 MB cap)
+  ING->>MBTA: GET TripUpdates.pb, VehiclePositions.pb (timeouts, 8 MiB cap)
   MBTA-->>ING: protobuf snapshots
   ING->>ING: diff snapshots → arrivals, skips, cancellations (pure core)
   opt alert rule window active
@@ -459,11 +459,13 @@ sequenceDiagram
 
 | Path | Cache | Content |
 |---|---|---|
-| `/data/v1/manifest.json` | 60 s | current `build_id`, generated time, coverage summary |
-| `/data/v1/{build}/mbta/stops/index.json` | 1 yr, immutable | ~8k stops: id, name, lat/lon, routes. Powers **client-side** search and "near me" |
-| `/data/v1/{build}/mbta/routes.json` | 1 yr | route list with headline metrics |
-| `/data/v1/{build}/mbta/routes/{route_id}.json` | 1 yr | per-stop × day-type × hour cells (§6.3) |
-| `/data/v1/health.json` | 60 s | last tick time, feed age, today's coverage, 30-day gap list |
+| `/data/v1/manifest.json` | 60 s | current `build_id`, generated time, per-agency window and paths |
+| `/data/v1/builds/{build}/mbta/stops.json` | 1 yr, immutable | ~8k stops: id, name, lat/lon, routes. Powers **client-side** search and "near me" |
+| `/data/v1/builds/{build}/mbta/routes.json` | 1 yr | route list with headline metrics |
+| `/data/v1/builds/{build}/mbta/routes/{route_id}.json` | 1 yr | per-stop × day-type × hour cells (§6.3) |
+| `/data/v1/health/{agency}.json` | 60 s (rewritten every 5 min by ingest) | status, last success, feed age, ticks in the last hour, recent gaps |
+| `/data/v1/builds/{build}/mbta/coverage.json` | 1 yr | 30-day coverage per service date |
+| `/data/v1/validation/mbta.json` | 1 h | weekly accuracy vs MBTA LAMP |
 
 ### 8.2 Dynamic API (`/api/v1`, same origin via CloudFront → API Gateway → λ api)
 
@@ -500,12 +502,12 @@ Conventions:
 | Job | Trigger | Runtime limits | Idempotency | Failure behavior | Alarm |
 |---|---|---|---|---|---|
 | `ingest-tick` | Scheduler `rate(1 minute)` | 512 MB, 50 s timeout, **reserved concurrency 1** | Deterministic event keys; state CAS via `If-Match` | Fetch errors retried twice within the tick; otherwise skip (the next tick recovers and gaps are marked low-confidence) | No success for 5 min; error rate > 20% over 15 min; feed age > 5 min |
-| `schedule-import` | Daily 03:30 America/New_York | 1,536 MB, 5 min | Skips if `ETag`/`Last-Modified` unchanged; version-keyed outputs; catalog upsert in one transaction | Retries 2× with backoff (Scheduler policy); keeps the previous version active | No successful import for 3 days *and* the feed changed |
+| `schedule-import` | Daily 03:30 America/New_York | 1,536 MB, 5 min | Skips if `ETag`/`Last-Modified` unchanged; version-keyed outputs; catalog upsert in one transaction | Retries 2× with backoff (Scheduler policy); keeps the previous version active | No successful import for 3 days *and* the feed changed (surfaced via the schedule-match quality check and the Pipeline dashboard; the 10 CloudWatch alarms are listed in docs/06 §9) |
 | `daily-rollup` | Daily 04:15 ET for service_date D−1 | 2,048 MB, 10 min | Overwrites `service_date=` partitions; builds publish to a new `build_id`; manifest swap last | Data-quality gate (coverage ≥ 80%, row-count delta within ±40% of the 7-day median); on failure **keep the previous build published** | Not succeeded by 06:00 ET |
-| `maintenance` | Daily 05:00 ET | 256 MB, 2 min | Pure deletes by predicate | Retry next day | Errors on 2 consecutive days |
-| `backup` | GitHub Actions nightly | — | Dated object key | Job failure → GitHub notification | Missing backup for 2 days (checked by maintenance) |
+| `maintenance` | Daily 05:00 ET | 256 MB, 2 min | Pure deletes by predicate | Retry next day | Errors on 2 consecutive days (log + Pipeline dashboard; not one of the 10 CloudWatch alarms) |
+| `backup` | GitHub Actions nightly | — | Dated object key | Job failure → GitHub notification | Missing backup for 2 days (warning logged by maintenance) |
 | `lamp-validate` *(should)* | Weekly | 1,024 MB | Week-keyed output | Report only | — |
-| `notify` *(should)* | Async invoke from ingest | 256 MB, 20 s | `notifications.dedupe_key` unique | Lambda async retries ×2 → on-failure destination (SQS DLQ) | DLQ depth > 0 |
+| `notify` *(should)* | Async invoke from ingest | 256 MB, 30 s | `notifications.dedupe_key` unique | Lambda async retries ×2 → on-failure destination (SQS DLQ) | DLQ depth > 0 |
 
 **Why async invoke instead of an SQS queue for alerts:** a Lambda reading from SQS long-polls continuously, even when idle. Up to five pollers can consume most of SQS's 1M-requests/month free tier doing nothing. An async invoke costs nothing when there are no alerts, and it still provides retries and a dead-letter destination.
 
@@ -563,7 +565,7 @@ The largest line item is S3 PUTs from the per-minute state and event writes. Kee
 
 | # | Decision | Key tradeoff |
 |---|---|---|
-| ADR-001 | Modular monolith on Lambda, one artifact | Simplicity and $0 idle vs cold starts (mitigated: lean API package, lazy imports; documented p95/p99) |
+| ADR-001 | Modular monolith on Lambda, one codebase (two packages) | Simplicity and $0 idle vs cold starts (mitigated: lean API package, lazy imports; documented p95/p99) |
 | ADR-002 | Observations in S3/Parquet + DuckDB; OLTP in Postgres | Two storage systems vs fitting the free tier and using the right engine for each workload |
 | ADR-003 | Poll every 60 s | ±~1 min arrival precision vs staying inside free tiers; validated against LAMP |
 | ADR-004 | Neon free over RDS | Scale-to-zero and $0 vs an external vendor and cold-start latency (~0.5–1 s on first query) |
