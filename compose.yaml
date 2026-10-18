@@ -50,7 +50,7 @@ services:
     <<: *backend
     command: ["uvicorn", "stopwatch.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--app-dir", "src"]
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000"   # API_PORT=8010 make dev if 8000 is taken
     depends_on:
       migrate:
         condition: service_completed_successfully
