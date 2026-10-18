@@ -72,7 +72,7 @@ flowchart LR
 
 - Actions are pinned to commit SHAs. Workflow `permissions:` default to read-only. Only deploy jobs get `id-token: write`.
 - Artifacts are **built once and promoted**. Staging and prod run the same zip, verified by SHA-256.
-- Packaging builds arm64 wheels on x86 runners with `uv pip install --python-platform aarch64-manylinux2014 --only-binary=:all:`. No QEMU or Docker emulation is needed.
+- Packaging builds arm64 wheels on x86 runners with `uv pip install --python-platform aarch64-manylinux_2_28 --only-binary=:all:`. No QEMU or Docker emulation is needed.
 - Branch protection on `main`: required checks, linear history, no force-push.
 - Conventional commits feed an automatic `CHANGELOG.md` on release tags.
 
@@ -160,7 +160,7 @@ infra/
 - The ingest tick writes **one** summary line per run, which keeps logs well under CloudWatch's 5 GB/month free tier.
 - Retention is 14 days.
 
-**Custom metrics** (CloudWatch EMF, namespace `Stopwatch`, dimension `env` only). This is ≤ 10 metrics, matching the free tier:
+**Custom metrics** (CloudWatch EMF, namespace `Stopwatch`, dimensions `env` + `service` — Powertools always adds `service`; alarms match both). This is ≤ 10 metrics, matching the free tier:
 
 | # | Metric | Unit |
 |---|---|---|

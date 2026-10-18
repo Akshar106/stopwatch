@@ -13,9 +13,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import DBAPIError
 
+from stopwatch.platform import dbschema
 from stopwatch.platform.db import get_engine
 
 EXPECTED_TABLES = (
@@ -55,9 +56,9 @@ def verify() -> dict[str, Any]:
         missing = [t for t in EXPECTED_TABLES if t not in present]
         checks["tables"] = {"ok": not missing, "missing": missing}
         checks["row_counts"] = {
-            t: conn.execute(text(f"select count(*) from {t}")).scalar()  # noqa: S608 - fixed table names
-            for t in ("users", "saved_commutes", "routes", "stops", "audit_log")
-            if t in present
+            table.name: conn.execute(select(func.count()).select_from(table)).scalar()
+            for table in (dbschema.users, dbschema.saved_commutes, dbschema.routes, dbschema.stops, dbschema.audit_log)
+            if table.name in present
         }
     try:
         with engine.begin() as conn:

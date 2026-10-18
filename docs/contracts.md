@@ -21,7 +21,7 @@ same PR as the code that changes the interface.**
 - `api.zip` = the project plus the `ask` extra (no DuckDB).
 - `jobs.zip` = the project plus the `jobs` and `alerts` extras.
 
-Both are built for `aarch64-manylinux2014` by `scripts/package_lambda.sh`. Job handlers accept the Scheduler payload `{}` or `{"date": "YYYY-MM-DD"}` (rollup and import backfills) and return a JSON-serializable summary.
+Both are built for `aarch64-manylinux_2_28` (psycopg-binary ships no manylinux2014 arm64 wheel) by `scripts/package_lambda.sh` and deployed through an artifacts bucket (jobs.zip exceeds Lambda's 50 MB direct-upload limit). Job handlers accept the Scheduler payload `{}` or `{"date": "YYYY-MM-DD"}` (rollup and import backfills) and return a JSON-serializable summary.
 
 ### Environment variables (all functions)
 
@@ -35,7 +35,7 @@ Both are built for `aarch64-manylinux2014` by `scripts/package_lambda.sh`. Job h
 | `PUBLIC_BASE_URL` | `https://dxxxx.cloudfront.net` | OIDC redirect base, links |
 | `SSM_PREFIX` | `/stopwatch/prod` | secrets loaded at cold start |
 | `INGEST_ENABLED`, `ALERTS_ENABLED`, `ASK_ENABLED`, `DEMO_ENABLED` | `true` / `false` | feature flags |
-| `NOTIFY_FUNCTION_NAME` | `stopwatch-prod-notify` | ingest only |
+| `NOTIFY_FUNCTION_NAME` | `stopwatch-prod-notify:live` | ingest only; alias-qualified so alerts follow deploys and rollbacks |
 | `POWERTOOLS_SERVICE_NAME`, `POWERTOOLS_METRICS_NAMESPACE`, `LOG_LEVEL` | `stopwatch`, `Stopwatch`, `INFO` | |
 
 ### SSM parameters (`SecureString` under `$SSM_PREFIX/`)

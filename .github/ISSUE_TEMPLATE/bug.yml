@@ -1,0 +1,56 @@
+name: Bug report
+description: Something in Stopwatch is broken or behaves unexpectedly.
+title: "bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please don't include personal details (email, home/work stops) here.
+        For security issues, use a private security advisory instead of a public issue.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you see, and what did you expect to see?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open /s/mbta/64
+        2. Select weekday, 08:00
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: Page URL
+      placeholder: https://.../r/mbta/1
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Stop / route pages and charts
+        - Search / near me
+        - Saved commutes
+        - Sign-in / account
+        - Alerts (push)
+        - Ask Stopwatch
+        - Data health page
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Browser and device
+      placeholder: Safari 19 on iPhone 16
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else? (screenshots, console errors, X-Request-Id from the error message)

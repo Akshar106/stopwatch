@@ -91,3 +91,20 @@ def test_hook_dedupes_across_ticks(tmp_path) -> None:  # type: ignore[no-untyped
 def test_vapid_keys_have_expected_shapes() -> None:
     pub, priv = generate()
     assert len(pub) == 87 and len(priv) == 43  # 65-byte point and 32-byte scalar, base64url without padding
+
+
+def test_default_invoker_calls_notify_alias_asynchronously(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    import boto3
+
+    from stopwatch.alerts.evaluate import _default_invoker
+
+    calls: list[dict] = []
+
+    class FakeLambda:
+        def invoke(self, **kwargs):  # type: ignore[no-untyped-def]
+            calls.append(kwargs)
+
+    monkeypatch.setattr(boto3, "client", lambda service: FakeLambda())
+    _default_invoker("stopwatch-prod-notify:live")({"agency_id": "mbta", "candidates": []})
+    assert calls[0]["FunctionName"] == "stopwatch-prod-notify:live"
+    assert calls[0]["InvocationType"] == "Event"

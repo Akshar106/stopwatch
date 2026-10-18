@@ -1,0 +1,30 @@
+name: Feature request
+description: Suggest an improvement or a new capability.
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Who is affected and what are they trying to do? (rider, advocate, developer, operator)
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Constraints
+      description: Stopwatch runs at about $0 when idle and keeps personal data to a minimum.
+      options:
+        - label: I've considered the cost impact (free tier / $1 monthly budget)
+        - label: I've considered the privacy impact (no new personal data, or why it's needed)

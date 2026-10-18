@@ -1,0 +1,8 @@
+# Copy to terraform.tfvars and edit. Nothing here is secret.
+owner       = "your-name"
+github_repo = "your-github-user/stopwatch"
+
+# Optional:
+# state_bucket_name    = "stopwatch-tfstate-custom-name"
+# create_oidc_provider = false   # if the account already has token.actions.githubusercontent.com
+# existing_oidc_provider_arn = "arn:aws:iam::<account>:oidc-provider/token.actions.githubusercontent.com"

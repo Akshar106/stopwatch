@@ -164,7 +164,9 @@ def _default_invoker(function_name: str | None) -> Invoker:
 
         def invoke(payload: dict[str, Any]) -> None:
             client.invoke(
-                FunctionName=f"{function_name}:live", InvocationType="Event", Payload=json.dumps(payload).encode()
+                FunctionName=function_name,  # already alias-qualified: stopwatch-<env>-notify:live
+                InvocationType="Event",
+                Payload=json.dumps(payload).encode(),
             )
 
         return invoke

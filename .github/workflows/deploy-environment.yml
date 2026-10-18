@@ -1,0 +1,145 @@
+# Reusable: deploy the artifacts built by deploy.yml to ONE environment.
+#   verify checksums -> (prod) migration rehearsal on a Neon branch -> migrate -> terraform apply
+#   -> promote code (Lambda aliases, SPA, CloudFront invalidation) -> smoke -> (prod) auto-rollback
+#
+# GitHub configuration per environment (Settings -> Environments -> <env>):
+#   variables: AWS_DEPLOY_ROLE_ARN (bootstrap output deploy_role_arns[<env>])
+#   prod only: required reviewers; optional NEON_PROJECT_ID, NEON_PARENT_BRANCH, NEON_OWNER_ROLE, NEON_DATABASE
+# Repository-level: variables TF_STATE_BUCKET, OWNER; secrets ALERT_EMAIL, optional NEON_API_KEY.
+name: Deploy environment
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: GitHub environment and Terraform env (staging | prod)
+        type: string
+        required: true
+      require_manifest:
+        description: Smoke test fails if /data/v1/manifest.json is missing
+        type: boolean
+        default: false
+      rehearse_migrations:
+        description: Run migrations on a throwaway Neon branch first (needs NEON_API_KEY)
+        type: boolean
+        default: false
+      rollback_on_failure:
+        description: Move aliases and index.html back if the smoke test fails
+        type: boolean
+        default: false
+    secrets:
+      ALERT_EMAIL:
+        required: true
+      NEON_API_KEY:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: ${{ inputs.environment }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60 # first-time CloudFront creation alone can take ~15 min
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ steps.url.outputs.url }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      ENV: ${{ inputs.environment }}
+      AWS_REGION: us-east-1
+      AUTO_APPROVE: "1"
+      TF_IN_AUTOMATION: "1"
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      TF_VAR_owner: ${{ vars.OWNER }}
+      TF_VAR_github_repo: ${{ github.repository }}
+      TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
+      HAS_NEON_KEY: ${{ secrets.NEON_API_KEY != '' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: lambda-packages
+          path: dist
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: spa
+          path: frontend/dist
+
+      - name: Verify artifacts are the ones built once
+        run: |
+          (cd dist && sha256sum -c SHA256SUMS)
+          (cd frontend/dist && sha256sum --quiet -c ../../dist/SPA_SHA256SUMS)
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: "1.16.4"
+          terraform_wrapper: false
+
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.12.22"
+          python-version: "3.13"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install backend (Alembic for migrations)
+        working-directory: backend
+        run: uv sync --frozen
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: gha-${{ inputs.environment }}-${{ github.run_id }}
+          aws-region: us-east-1
+          role-duration-seconds: 3600
+
+      # docs/06 §5: copy-on-write branch of prod, migrate it, delete it, then migrate prod.
+      - name: Migration rehearsal on a Neon branch
+        if: inputs.rehearse_migrations && env.HAS_NEON_KEY == 'true'
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          NEON_PARENT_BRANCH: ${{ vars.NEON_PARENT_BRANCH || 'main' }}
+          NEON_OWNER_ROLE: ${{ vars.NEON_OWNER_ROLE || 'stopwatch_owner' }}
+          NEON_DATABASE: ${{ vars.NEON_DATABASE || 'stopwatch' }}
+        run: |
+          set -euo pipefail
+          neon() { npx --yes neonctl@8.8.0 "$@" --project-id "$NEON_PROJECT_ID"; }
+          branch="rehearsal-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          neon branches create --name "$branch" --parent "$NEON_PARENT_BRANCH" --output json > /dev/null
+          trap 'neon branches delete "$branch" > /dev/null && echo "deleted Neon branch $branch"' EXIT
+          url="$(neon connection-string "$branch" --role-name "$NEON_OWNER_ROLE" --database-name "$NEON_DATABASE")"
+          echo "::add-mask::$url"
+          MIGRATE_DATABASE_URL="$url" make migrate-cloud ENV="$ENV"
+          echo "Rehearsal on $branch succeeded" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Migrate database (expand/contract; owner URL from SSM)
+        run: make migrate-cloud ENV="$ENV"
+
+      - name: Terraform apply (artifact hashes from the build job)
+        run: make apply ENV="$ENV"
+
+      - name: Promote code (publish versions, move aliases, upload SPA, invalidate)
+        run: make deploy-code ENV="$ENV"
+
+      - name: Public URL
+        id: url
+        run: echo "url=$(terraform -chdir="infra/envs/$ENV" output -raw public_base_url)" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke tests
+        id: smoke
+        run: make smoke ENV="$ENV" EXPECT_VERSION="$GITHUB_SHA" REQUIRE_MANIFEST="${{ inputs.require_manifest && '1' || '0' }}"
+
+      - name: Roll back (smoke tests failed)
+        if: failure() && inputs.rollback_on_failure && steps.smoke.outcome == 'failure'
+        run: |
+          make rollback FN=all ENV="$ENV" SNAPSHOT="build/alias-snapshot-$ENV.tsv"
+          make rollback-site ENV="$ENV"
+          echo "::error::Smoke tests failed on $ENV; aliases and index.html were rolled back. Database migrations are expand-only and stay applied."
