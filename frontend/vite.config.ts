@@ -26,7 +26,7 @@ const SECURITY_HEADERS = {
 };
 
 export default defineConfig(({ mode }) => {
-  const target = process.env.VITE_PROXY_TARGET || "http://localhost:8000";
+  const target = process.env.VITE_PROXY_TARGET || "http://127.0.0.1:8000";
   const proxy: Record<string, ProxyOptions> = {
     "/api": { target },
     "/data": { target },
