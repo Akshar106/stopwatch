@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     vapid_subject: str = "mailto:operator@example.com"
 
     anthropic_api_key: SecretStr | None = None
-    ask_model: str = "claude-haiku-5-5"
+    ask_model: str = "claude-opus-5-5"  # set ASK_MODEL=claude-haiku-5-5 to stretch the monthly cap
     ask_monthly_cap_usd: float = 1.0
 
     notify_function_name: str | None = None

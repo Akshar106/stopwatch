@@ -265,7 +265,7 @@ Weeks 17+ (**Could**, as time allows): map view → PWA → downloads → API ke
 | DuckDB / dependencies exceed the Lambda zip limit | Low | Medium | Separate dependency groups per function; fallback to a container image | Package size check in CI |
 | Free-tier terms change (AWS, Neon) | Medium | Medium | Quarterly re-check; architecture portable (Postgres anywhere, S3-compatible) | Budget alarm |
 | Scope creep (maps, ML, more agencies early) | High | High | MoSCoW table; checkpoints; "could" items only after v1.0 | Week overruns > 3 h twice |
-| OIDC / session work takes longer than planned | Medium | Medium | Use Authlib; demo accounts as fallback; buffer weeks | Week 9 not done by mid-week 10 |
+| OIDC / session work takes longer than planned | Medium | Medium | Use PyJWT + httpx (small, well-tested); demo accounts as fallback; buffer weeks | Week 9 not done by mid-week 10 |
 | Few real users | Medium | Medium | Post where riders are; make one personal page genuinely useful; accept small numbers and report them honestly | < 5 signups 2 weeks after launch |
 | Burnout or schedule slips | Medium | High | 15 h/week cap; buffer weeks; cut list ready | Two consecutive weeks under 8 h |
 | AWS cost surprise | Low | Medium | Budgets first (week 5); concurrency caps; no NAT/ALB/RDS | Any budget alert |

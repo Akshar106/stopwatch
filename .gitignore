@@ -36,3 +36,4 @@ crash.log
 .DS_Store
 .idea/
 .vscode/
+evals/ask/results/

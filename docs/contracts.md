@@ -46,7 +46,7 @@ Both are built for `aarch64-manylinux2014` by `scripts/package_lambda.sh`. Job h
 
 | Function | S3 | Other |
 |---|---|---|
-| `api` | lake: `PutObject` `config/alert_rules/*` | SSM read |
+| `api` | lake: `PutObject` `config/alert_rules/*`; site: `GetObject` `data/v1/*` (Ask reads published data) | SSM read |
 | `ingest-tick` | lake: `Get/PutObject` `state/*`, `events/*`, `raw/*`; `GetObject` `config/alert_rules/*`; site: `PutObject` `data/v1/health/*` | `lambda:InvokeFunction` on `notify` |
 | `schedule-import` | lake: `Get/PutObject` + `ListBucket` on `schedule/*` | SSM read |
 | `daily-rollup` | lake: `Get` `events/*`, `schedule/*`, `curated/*`; `Put` `curated/*`, `reports/*`; `ListBucket`; site: `Get/Put` `data/v1/*`, `ListBucket` | SSM read |
@@ -174,8 +174,10 @@ interface Health {
   recent_gaps: { start: string; end: string; minutes: number }[];   // last 7 days, gaps >= 3 min
 }
 
-interface Validation { agency_id: string; generated_at: string; week: string; sample: number;
-  median_abs_error_s: number | null; p90_abs_error_s: number | null; by_route: Record<string, { n: number; median_abs_error_s: number }> }
+interface Validation { agency_id: string; generated_at: string; week: string; days: number; sample: number;
+  median_abs_error_s: number | null; p90_abs_error_s: number | null;
+  by_route: Record<string, { n: number; median_abs_error_s: number }>;
+  by_method: Record<string, { n: number; median_abs_error_s: number }> }   // vs MBTA LAMP official arrivals
 ```
 
 **Health status rule:**
@@ -242,7 +244,7 @@ interface AlertRule { threshold_min: number; notify_cancellations: boolean; acti
 interface AskResponse {
   answer: string | null;               // null when the fallback is used
   fallback: boolean;                   // true → show the guided form
-  reason: string | null;               // "disabled" | "cap_reached" | "ungrounded" | "error" | null
+  reason: string | null;               // "disabled" | "cap_reached" | "ungrounded" | "refused" | "error" | null
   facts: { label: string; value: string; source: string }[];   // numbers backing the answer
   links: { label: string; href: string }[];                    // e.g. route/stop pages
 }
