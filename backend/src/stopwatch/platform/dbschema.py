@@ -29,7 +29,8 @@ from sqlalchemy.dialects.postgresql import CITEXT, INET, JSONB, UUID
 metadata = MetaData()
 
 users = Table(
-    "users", metadata,
+    "users",
+    metadata,
     Column("id", UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()),
     Column("email", CITEXT, unique=True),
     Column("display_name", Text),
@@ -42,7 +43,8 @@ users = Table(
 )
 
 sessions = Table(
-    "sessions", metadata,
+    "sessions",
+    metadata,
     Column("token_hash", LargeBinary, primary_key=True),
     Column("user_id", UUID(as_uuid=True), nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
@@ -53,7 +55,8 @@ sessions = Table(
 )
 
 agencies = Table(
-    "agencies", metadata,
+    "agencies",
+    metadata,
     Column("id", Text, primary_key=True),
     Column("name", Text, nullable=False),
     Column("timezone", Text, nullable=False),
@@ -62,7 +65,8 @@ agencies = Table(
 )
 
 feed_versions = Table(
-    "feed_versions", metadata,
+    "feed_versions",
+    metadata,
     Column("agency_id", Text, primary_key=True),
     Column("version", Text, primary_key=True),
     Column("imported_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
@@ -71,7 +75,8 @@ feed_versions = Table(
 )
 
 routes = Table(
-    "routes", metadata,
+    "routes",
+    metadata,
     Column("agency_id", Text, primary_key=True),
     Column("route_id", Text, primary_key=True),
     Column("short_name", Text),
@@ -83,7 +88,8 @@ routes = Table(
 )
 
 stops = Table(
-    "stops", metadata,
+    "stops",
+    metadata,
     Column("agency_id", Text, primary_key=True),
     Column("stop_id", Text, primary_key=True),
     Column("name", Text, nullable=False),
@@ -93,7 +99,8 @@ stops = Table(
 )
 
 route_stops = Table(
-    "route_stops", metadata,
+    "route_stops",
+    metadata,
     Column("agency_id", Text, primary_key=True),
     Column("route_id", Text, primary_key=True),
     Column("direction_id", SmallInteger, primary_key=True),
@@ -102,7 +109,8 @@ route_stops = Table(
 )
 
 saved_commutes = Table(
-    "saved_commutes", metadata,
+    "saved_commutes",
+    metadata,
     Column("id", UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()),
     Column("user_id", UUID(as_uuid=True), nullable=False),
     Column("agency_id", Text, nullable=False),
@@ -118,7 +126,8 @@ saved_commutes = Table(
 )
 
 idempotency_keys = Table(
-    "idempotency_keys", metadata,
+    "idempotency_keys",
+    metadata,
     Column("user_id", UUID(as_uuid=True), primary_key=True),
     Column("key", Text, primary_key=True),
     Column("request_hash", LargeBinary, nullable=False),
@@ -128,14 +137,16 @@ idempotency_keys = Table(
 )
 
 rate_limit_counters = Table(
-    "rate_limit_counters", metadata,
+    "rate_limit_counters",
+    metadata,
     Column("bucket", Text, primary_key=True),
     Column("window_start", DateTime(timezone=True), primary_key=True),
     Column("count", Integer, nullable=False),
 )
 
 audit_log = Table(
-    "audit_log", metadata,
+    "audit_log",
+    metadata,
     Column("id", BigInteger, primary_key=True, autoincrement=True),
     Column("at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column("actor_kind", Text, nullable=False),
@@ -150,7 +161,8 @@ audit_log = Table(
 )
 
 route_daily_metrics = Table(
-    "route_daily_metrics", metadata,
+    "route_daily_metrics",
+    metadata,
     Column("agency_id", Text, primary_key=True),
     Column("route_id", Text, primary_key=True),
     Column("direction_id", SmallInteger, primary_key=True),
@@ -165,7 +177,8 @@ route_daily_metrics = Table(
 )
 
 push_subscriptions = Table(
-    "push_subscriptions", metadata,
+    "push_subscriptions",
+    metadata,
     Column("id", UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()),
     Column("user_id", UUID(as_uuid=True), nullable=False),
     Column("endpoint", Text, nullable=False, unique=True),
@@ -176,7 +189,8 @@ push_subscriptions = Table(
 )
 
 alert_rules = Table(
-    "alert_rules", metadata,
+    "alert_rules",
+    metadata,
     Column("id", UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()),
     Column("commute_id", UUID(as_uuid=True), nullable=False, unique=True),
     Column("threshold_min", SmallInteger, nullable=False),
@@ -185,7 +199,8 @@ alert_rules = Table(
 )
 
 notifications = Table(
-    "notifications", metadata,
+    "notifications",
+    metadata,
     Column("id", UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()),
     Column("alert_rule_id", UUID(as_uuid=True), nullable=False),
     Column("dedupe_key", Text, nullable=False, unique=True),
@@ -197,7 +212,8 @@ notifications = Table(
 )
 
 ask_usage = Table(
-    "ask_usage", metadata,
+    "ask_usage",
+    metadata,
     Column("user_id", UUID(as_uuid=True), primary_key=True),
     Column("day", Date, primary_key=True),
     Column("requests", Integer, nullable=False),
@@ -205,7 +221,21 @@ ask_usage = Table(
 )
 
 __all__ = [
-    "agencies", "alert_rules", "ask_usage", "audit_log", "feed_versions", "idempotency_keys", "metadata",
-    "notifications", "push_subscriptions", "rate_limit_counters", "route_daily_metrics", "route_stops",
-    "routes", "saved_commutes", "sessions", "stops", "users",
+    "agencies",
+    "alert_rules",
+    "ask_usage",
+    "audit_log",
+    "feed_versions",
+    "idempotency_keys",
+    "metadata",
+    "notifications",
+    "push_subscriptions",
+    "rate_limit_counters",
+    "route_daily_metrics",
+    "route_stops",
+    "routes",
+    "saved_commutes",
+    "sessions",
+    "stops",
+    "users",
 ]

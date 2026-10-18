@@ -1,7 +1,7 @@
 """Atomic publishing of immutable builds with a manifest swap, retention, and one-command rollback.
 
-    python -m stopwatch.rollups.publish --list
-    python -m stopwatch.rollups.publish --rollback 20261019T081502Z
+python -m stopwatch.rollups.publish --list
+python -m stopwatch.rollups.publish --rollback 20261019T081502Z
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ def build_manifest(build_id: str, generated_at: str, agencies: list[dict[str, An
 
 
 def list_builds(site: BlobStore) -> list[str]:
-    ids = {k[len(BUILDS_PREFIX):].split("/", 1)[0] for k in site.list(BUILDS_PREFIX)}
+    ids = {k[len(BUILDS_PREFIX) :].split("/", 1)[0] for k in site.list(BUILDS_PREFIX)}
     return sorted(i for i in ids if i)
 
 

@@ -41,7 +41,5 @@ def build_health(agency_id: str, state: IngestState, now: int) -> dict[str, Any]
             "not_advanced": hour.count("not_advanced"),
             "expected": 60,
         },
-        "recent_gaps": [
-            {"start": _iso(a), "end": _iso(b), "minutes": round((b - a) / 60)} for a, b in state.gaps
-        ],
+        "recent_gaps": [{"start": _iso(a), "end": _iso(b), "minutes": round((b - a) / 60)} for a, b in state.gaps],
     }

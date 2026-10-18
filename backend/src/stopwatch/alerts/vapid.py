@@ -21,8 +21,9 @@ def _b64(data: bytes) -> str:
 def generate() -> tuple[str, str]:
     key = ec.generate_private_key(ec.SECP256R1())
     private_raw = key.private_numbers().private_value.to_bytes(32, "big")
-    public_raw = key.public_key().public_bytes(serialization.Encoding.X962,
-                                               serialization.PublicFormat.UncompressedPoint)
+    public_raw = key.public_key().public_bytes(
+        serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint
+    )
     return _b64(public_raw), _b64(private_raw)
 
 

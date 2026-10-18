@@ -51,14 +51,16 @@ def measure(agency_id: str) -> dict[str, Any]:
         "trip_updates": len(trips),
         "stop_time_updates": len(stus),
         "past_stop_share": round(sum(1 for t in times if t and t < ts - 120) / n, 4),
-        "skipped_share": round(sum(1 for s in stus if s.schedule_relationship
-                                   == rt.TripUpdate.StopTimeUpdate.SKIPPED) / n, 4),
+        "skipped_share": round(
+            sum(1 for s in stus if s.schedule_relationship == rt.TripUpdate.StopTimeUpdate.SKIPPED) / n, 4
+        ),
         "delay_field_share": round(sum(1 for s in stus if s.arrival.HasField("delay")) / n, 4),
         "stop_sequence_share": round(sum(1 for s in stus if s.HasField("stop_sequence")) / n, 4),
         "start_date_share": round(sum(1 for t in trips if t.trip.start_date) / max(len(trips), 1), 4),
         "vehicles": len(vehicles),
         "vehicle_stop_sequence_share": round(
-            sum(1 for v in vehicles if v.HasField("current_stop_sequence")) / max(len(vehicles), 1), 4),
+            sum(1 for v in vehicles if v.HasField("current_stop_sequence")) / max(len(vehicles), 1), 4
+        ),
     }
 
 
@@ -69,8 +71,9 @@ def evaluate(m: dict[str, Any]) -> list[str]:
         if (kind == "max" and value > limit) or (kind == "min" and value < limit):
             failures.append(f"{name}={value} violates {kind} {limit}")
     if m["delay_field_share"] > 0:
-        failures.append(f"delay_field_share={m['delay_field_share']}: feed now publishes delay; "
-                        "consider using it (informational)")
+        failures.append(
+            f"delay_field_share={m['delay_field_share']}: feed now publishes delay; consider using it (informational)"
+        )
     return failures
 
 

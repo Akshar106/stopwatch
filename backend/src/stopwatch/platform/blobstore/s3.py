@@ -74,7 +74,7 @@ class S3BlobStore:
         paginator = self.client.get_paginator("list_objects_v2")
         for page in paginator.paginate(Bucket=self.bucket, Prefix=self._key(prefix)):
             for obj in page.get("Contents", []):
-                keys.append(obj["Key"][len(self.prefix):])
+                keys.append(obj["Key"][len(self.prefix) :])
         return sorted(keys)
 
     def delete(self, key: str) -> None:

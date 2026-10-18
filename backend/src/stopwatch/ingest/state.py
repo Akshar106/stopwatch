@@ -42,8 +42,15 @@ def _snapshot_to_json(s: Snapshot) -> dict[str, Any]:
     return {
         "feed_ts": s.feed_ts,
         "trips": [
-            [k.trip_id, k.start_date, t.route_id, t.direction_id, t.vehicle_id, t.status.value,
-             [[p.stop_sequence, p.stop_id, p.time, 1 if p.skipped else 0] for p in t.stops.values()]]
+            [
+                k.trip_id,
+                k.start_date,
+                t.route_id,
+                t.direction_id,
+                t.vehicle_id,
+                t.status.value,
+                [[p.stop_sequence, p.stop_id, p.time, 1 if p.skipped else 0] for p in t.stops.values()],
+            ]
             for k, t in s.trips.items()
         ],
     }
@@ -54,7 +61,10 @@ def _snapshot_from_json(d: dict[str, Any]) -> Snapshot:
     for trip_id, start_date, route_id, direction_id, vehicle_id, status, stops in d["trips"]:
         key = TripKey(trip_id, start_date)
         trips[key] = TripState(
-            key=key, route_id=route_id, direction_id=direction_id, vehicle_id=vehicle_id,
+            key=key,
+            route_id=route_id,
+            direction_id=direction_id,
+            vehicle_id=vehicle_id,
             status=TripStatus(status),
             stops={seq: StopPrediction(seq, stop_id, t, bool(sk)) for seq, stop_id, t, sk in stops},
         )

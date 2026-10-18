@@ -23,10 +23,20 @@ DELAY_VALID_MIN_S = -30 * 60
 DELAY_VALID_MAX_S = 120 * 60
 
 EVENT_COLUMNS = {
-    "kind": "VARCHAR", "service_date": "VARCHAR", "trip_id": "VARCHAR", "route_id": "VARCHAR",
-    "direction_id": "INTEGER", "trip_status": "VARCHAR", "observed_at": "BIGINT", "stop_id": "VARCHAR",
-    "stop_sequence": "INTEGER", "vehicle_id": "VARCHAR", "est_arrival": "BIGINT", "method": "VARCHAR",
-    "confidence": "VARCHAR", "lead_s": "INTEGER",
+    "kind": "VARCHAR",
+    "service_date": "VARCHAR",
+    "trip_id": "VARCHAR",
+    "route_id": "VARCHAR",
+    "direction_id": "INTEGER",
+    "trip_status": "VARCHAR",
+    "observed_at": "BIGINT",
+    "stop_id": "VARCHAR",
+    "stop_sequence": "INTEGER",
+    "vehicle_id": "VARCHAR",
+    "est_arrival": "BIGINT",
+    "method": "VARCHAR",
+    "confidence": "VARCHAR",
+    "lead_s": "INTEGER",
 }
 
 
@@ -69,25 +79,31 @@ def _local_files(lake: BlobStore, keys: list[str], workdir: Path) -> list[Path]:
     return paths
 
 
-def load_calendar(con: Any, catalog: ScheduleCatalog, version: str, workdir: Path
-                  ) -> tuple[list[CalendarRow], list[CalendarException]]:
+def load_calendar(
+    con: Any, catalog: ScheduleCatalog, version: str, workdir: Path
+) -> tuple[list[CalendarRow], list[CalendarException]]:
     cal = catalog.table_path(version, "calendar", workdir).as_posix()
     cd = catalog.table_path(version, "calendar_dates", workdir).as_posix()
     rows = [
         CalendarRow(r[0], (r[1], r[2], r[3], r[4], r[5], r[6], r[7]), r[8], r[9])
-        for r in con.execute(f"SELECT service_id, mon, tue, wed, thu, fri, sat, sun, start_date, end_date "
-                             f"FROM '{cal}'").fetchall()
+        for r in con.execute(
+            f"SELECT service_id, mon, tue, wed, thu, fri, sat, sun, start_date, end_date FROM '{cal}'"
+        ).fetchall()
     ]
-    exc = [CalendarException(r[0], r[1], r[2])
-           for r in con.execute(f"SELECT service_id, date, exception_type FROM '{cd}'").fetchall()]
+    exc = [
+        CalendarException(r[0], r[1], r[2])
+        for r in con.execute(f"SELECT service_id, date, exception_type FROM '{cd}'").fetchall()
+    ]
     return rows, exc
 
 
-def compact_day(agency: AgencyConfig, lake: BlobStore, catalog: ScheduleCatalog, service_date: date,
-                workdir: Path) -> CompactResult:
+def compact_day(
+    agency: AgencyConfig, lake: BlobStore, catalog: ScheduleCatalog, service_date: date, workdir: Path
+) -> CompactResult:
     d = service_date
     keys = lake.list(f"events/agency={agency.id}/dt={d.isoformat()}/") + lake.list(
-        f"events/agency={agency.id}/dt={(d + timedelta(days=1)).isoformat()}/")
+        f"events/agency={agency.id}/dt={(d + timedelta(days=1)).isoformat()}/"
+    )
     keys = [k for k in keys if k.endswith(".jsonl.gz")]
     files = _local_files(lake, keys, workdir)
     res = CompactResult(agency_id=agency.id, service_date=d, event_files=len(files))
@@ -163,8 +179,10 @@ def compact_day(agency: AgencyConfig, lake: BlobStore, catalog: ScheduleCatalog,
     out = workdir / "curated"
     out.mkdir(parents=True, exist_ok=True)
     arr_path, trips_path = out / "arrivals.parquet", out / "trips.parquet"
-    con.execute(f"COPY (SELECT * FROM curated ORDER BY route_id, trip_id, stop_sequence) TO "
-                f"'{arr_path.as_posix()}' (FORMAT parquet, COMPRESSION zstd)")
+    con.execute(
+        f"COPY (SELECT * FROM curated ORDER BY route_id, trip_id, stop_sequence) TO "
+        f"'{arr_path.as_posix()}' (FORMAT parquet, COMPRESSION zstd)"
+    )
     con.execute(f"COPY curated_trips TO '{trips_path.as_posix()}' (FORMAT parquet, COMPRESSION zstd)")
 
     stats = con.execute("""

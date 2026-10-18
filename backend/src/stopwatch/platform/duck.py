@@ -14,8 +14,11 @@ def connect(workdir: Path, *, memory_limit: str | None = None):  # type: ignore[
     spill = workdir / "duckdb-spill"
     spill.mkdir(exist_ok=True)
     con.execute(f"SET temp_directory = '{spill.as_posix()}'")
-    limit = memory_limit or os.environ.get("DUCKDB_MEMORY_LIMIT") or ("1200MB" if os.environ.get(
-        "AWS_LAMBDA_FUNCTION_NAME") else "4GB")
+    limit = (
+        memory_limit
+        or os.environ.get("DUCKDB_MEMORY_LIMIT")
+        or ("1200MB" if os.environ.get("AWS_LAMBDA_FUNCTION_NAME") else "4GB")
+    )
     con.execute(f"SET memory_limit = '{limit}'")
     con.execute("SET preserve_insertion_order = false")
     # GTFS time "HH:MM:SS" (hours may exceed 23) -> seconds since noon-minus-12h.

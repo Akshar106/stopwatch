@@ -1,8 +1,8 @@
 """Lambda entry point: compact yesterday's events, gate on data quality, compute and publish a new build.
 
-    python -m stopwatch.jobs.daily_rollup                    # yesterday (agency local time)
-    python -m stopwatch.jobs.daily_rollup --date 2026-10-18  # a specific service date
-    python -m stopwatch.jobs.daily_rollup --force            # publish even if the quality gate fails (dev)
+python -m stopwatch.jobs.daily_rollup                    # yesterday (agency local time)
+python -m stopwatch.jobs.daily_rollup --date 2026-10-18  # a specific service date
+python -m stopwatch.jobs.daily_rollup --force            # publish even if the quality gate fails (dev)
 """
 
 from __future__ import annotations
@@ -43,8 +43,18 @@ def _upsert_route_daily(rows: list[dict[str, Any]]) -> None:
     stmt = pg_insert(t.route_daily_metrics).values(rows)
     stmt = stmt.on_conflict_do_update(
         index_elements=["agency_id", "route_id", "direction_id", "service_date"],
-        set_={c: stmt.excluded[c] for c in ("trips_scheduled", "trips_observed", "trips_canceled", "on_time_pct",
-                                             "median_delay_s", "p90_delay_s", "excess_wait_s")},
+        set_={
+            c: stmt.excluded[c]
+            for c in (
+                "trips_scheduled",
+                "trips_observed",
+                "trips_canceled",
+                "on_time_pct",
+                "median_delay_s",
+                "p90_delay_s",
+                "excess_wait_s",
+            )
+        },
     )
     with transaction() as conn:
         conn.execute(stmt)
@@ -71,8 +81,9 @@ def run(service_date: date | None = None, *, force: bool = False) -> dict[str, A
             if compacted.coverage_pct is not None:
                 put_metric("RollupCoveragePct", compacted.coverage_pct)
             has_validation = site.get(f"data/v1/validation/{agency.id}.json") is not None
-            build = compute_agency(agency, lake, catalog, d, workdir / agency.id / "compute",
-                                   has_validation=has_validation)
+            build = compute_agency(
+                agency, lake, catalog, d, workdir / agency.id / "compute", has_validation=has_validation
+            )
             files.update(build.files)
             manifest_entries.append(build.manifest)
             try:
@@ -81,10 +92,13 @@ def run(service_date: date | None = None, *, force: bool = False) -> dict[str, A
                 log.warning("route_daily_metrics upsert failed", error_type=type(exc).__name__)
             all_passed &= report.passed
             summary["agencies"][agency.id] = {
-                "service_date": d.isoformat(), "quality_passed": report.passed,
+                "service_date": d.isoformat(),
+                "quality_passed": report.passed,
                 "failed_checks": [k for k, v in report.checks.items() if not v["ok"]],
-                "coverage_pct": compacted.coverage_pct, "arrivals": compacted.arrivals,
-                "event_files": compacted.event_files, **build.summary,
+                "coverage_pct": compacted.coverage_pct,
+                "arrivals": compacted.arrivals,
+                "event_files": compacted.event_files,
+                **build.summary,
             }
 
     if all_passed or force:
@@ -96,8 +110,11 @@ def run(service_date: date | None = None, *, force: bool = False) -> dict[str, A
         log.info("rollup published", build_id=build_id, files=len(files), forced=force and not all_passed)
     else:
         put_metric("RollupSuccess", 0)
-        log.error("quality gate failed; previous build stays live", build_id=build_id,
-                  agencies=json.dumps(summary["agencies"], default=str))
+        log.error(
+            "quality gate failed; previous build stays live",
+            build_id=build_id,
+            agencies=json.dumps(summary["agencies"], default=str),
+        )
     return summary
 
 

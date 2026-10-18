@@ -29,8 +29,9 @@ from stopwatch.platform.observability import get_logger
 from stopwatch.rollups.compact import arrivals_key
 
 log = get_logger("lamp_validate")
-LAMP_URL = ("https://performancedata.mbta.com/lamp/subway-on-time-performance-v1/"
-            "{d}-subway-on-time-performance-v1.parquet")
+LAMP_URL = (
+    "https://performancedata.mbta.com/lamp/subway-on-time-performance-v1/{d}-subway-on-time-performance-v1.parquet"
+)
 SUBWAY = ("Red", "Orange", "Blue", "Green-B", "Green-C", "Green-D", "Green-E", "Mattapan")
 MATCH_WINDOW_S = 900
 
@@ -41,8 +42,9 @@ def _default_fetch(url: str) -> bytes:
     return fetch_bytes(url, max_bytes=50 * 1024 * 1024, read_timeout=60).data
 
 
-def validate(lake: BlobStore, site: BlobStore, end: date, workdir: Path, fetch: Fetch = _default_fetch,
-             days: int = 7) -> dict[str, Any]:
+def validate(
+    lake: BlobStore, site: BlobStore, end: date, workdir: Path, fetch: Fetch = _default_fetch, days: int = 7
+) -> dict[str, Any]:
     lamp_files, ours_files = [], []
     for i in range(days):
         d = end - timedelta(days=i)
@@ -65,9 +67,17 @@ def validate(lake: BlobStore, site: BlobStore, end: date, workdir: Path, fetch: 
         ours_files.append(local)
 
     week = (end - timedelta(days=end.weekday())).isoformat()
-    report: dict[str, Any] = {"agency_id": "mbta", "generated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-                              "week": week, "days": len(lamp_files), "sample": 0, "median_abs_error_s": None,
-                              "p90_abs_error_s": None, "by_route": {}, "by_method": {}}
+    report: dict[str, Any] = {
+        "agency_id": "mbta",
+        "generated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "week": week,
+        "days": len(lamp_files),
+        "sample": 0,
+        "median_abs_error_s": None,
+        "p90_abs_error_s": None,
+        "by_route": {},
+        "by_method": {},
+    }
     if lamp_files:
         con = connect(workdir)
         ours = "[" + ", ".join(f"'{p.as_posix()}'" for p in ours_files) + "]"
@@ -86,17 +96,28 @@ def validate(lake: BlobStore, site: BlobStore, end: date, workdir: Path, fetch: 
                         AND abs(o.t - l.stop_timestamp) <= {MATCH_WINDOW_S})
             SELECT * FROM j QUALIFY row_number() OVER (PARTITION BY trip_id, stop_sequence ORDER BY err) = 1""")
         n, med, p90 = con.execute("SELECT count(*), median(err), quantile_cont(err, 0.9) FROM m").fetchone()  # type: ignore[misc]
-        report.update({"sample": int(n), "median_abs_error_s": None if med is None else round(float(med)),
-                       "p90_abs_error_s": None if p90 is None else round(float(p90))})
-        report["by_route"] = {r: {"n": int(c), "median_abs_error_s": round(float(e))} for r, c, e in con.execute(
-            "SELECT route_id, count(*), median(err) FROM m GROUP BY 1 ORDER BY 1").fetchall()}
-        report["by_method"] = {r: {"n": int(c), "median_abs_error_s": round(float(e))} for r, c, e in con.execute(
-            "SELECT method, count(*), median(err) FROM m GROUP BY 1 ORDER BY 1").fetchall()}
+        report.update(
+            {
+                "sample": int(n),
+                "median_abs_error_s": None if med is None else round(float(med)),
+                "p90_abs_error_s": None if p90 is None else round(float(p90)),
+            }
+        )
+        report["by_route"] = {
+            r: {"n": int(c), "median_abs_error_s": round(float(e))}
+            for r, c, e in con.execute("SELECT route_id, count(*), median(err) FROM m GROUP BY 1 ORDER BY 1").fetchall()
+        }
+        report["by_method"] = {
+            r: {"n": int(c), "median_abs_error_s": round(float(e))}
+            for r, c, e in con.execute("SELECT method, count(*), median(err) FROM m GROUP BY 1 ORDER BY 1").fetchall()
+        }
         con.close()
 
     body = json.dumps(report, indent=2).encode()
     lake.put(f"reports/lamp/agency=mbta/week={week}.json", body, content_type="application/json")
-    site.put("data/v1/validation/mbta.json", body, content_type="application/json", cache_control="public, max-age=3600")
+    site.put(
+        "data/v1/validation/mbta.json", body, content_type="application/json", cache_control="public, max-age=3600"
+    )
     return report
 
 
@@ -107,8 +128,12 @@ def run(end: date | None = None) -> dict[str, Any]:
     end = end or datetime.now(ZoneInfo("America/New_York")).date() - timedelta(days=1)
     with tempfile.TemporaryDirectory(prefix="lamp-") as tmp:
         report = validate(open_blobstore(settings.lake_url), open_blobstore(settings.site_url), end, Path(tmp))
-    log.info("lamp validation", sample=report["sample"], median_abs_error_s=report["median_abs_error_s"],
-             p90_abs_error_s=report["p90_abs_error_s"])
+    log.info(
+        "lamp validation",
+        sample=report["sample"],
+        median_abs_error_s=report["median_abs_error_s"],
+        p90_abs_error_s=report["p90_abs_error_s"],
+    )
     return report
 
 

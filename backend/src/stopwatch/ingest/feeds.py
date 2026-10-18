@@ -73,8 +73,10 @@ def parse_trip_updates(data: bytes, *, now: int | None = None) -> Snapshot:
                 t = None
             skipped = stu.schedule_relationship == rt.TripUpdate.StopTimeUpdate.SKIPPED
             stops[int(stu.stop_sequence)] = StopPrediction(
-                stop_sequence=int(stu.stop_sequence), stop_id=stu.stop_id,
-                time=int(t) if t is not None else None, skipped=skipped,
+                stop_sequence=int(stu.stop_sequence),
+                stop_id=stu.stop_id,
+                time=int(t) if t is not None else None,
+                skipped=skipped,
             )
         trips[key] = TripState(
             key=key,
@@ -103,9 +105,11 @@ def parse_vehicle_positions(data: bytes) -> ParsedVehicles:
             and v.trip.start_date
             and v.timestamp
         ):
-            stopped.append(VehicleStop(
-                trip=TripKey(v.trip.trip_id, v.trip.start_date),
-                stop_sequence=int(v.current_stop_sequence),
-                ts=int(v.timestamp),
-            ))
+            stopped.append(
+                VehicleStop(
+                    trip=TripKey(v.trip.trip_id, v.trip.start_date),
+                    stop_sequence=int(v.current_stop_sequence),
+                    ts=int(v.timestamp),
+                )
+            )
     return ParsedVehicles(feed_ts=int(msg.header.timestamp), stopped=stopped, count=count)

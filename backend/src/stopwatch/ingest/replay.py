@@ -63,8 +63,11 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("directory", type=Path)
     ap.add_argument("--jsonl", action="store_true", help="print every event as JSON lines")
-    ap.add_argument("--into-lake", action="store_true",
-                    help="run the real ingest tick against LAKE_URL/SITE_URL for each recorded snapshot")
+    ap.add_argument(
+        "--into-lake",
+        action="store_true",
+        help="run the real ingest tick against LAKE_URL/SITE_URL for each recorded snapshot",
+    )
     args = ap.parse_args()
     if args.into_lake:
         from stopwatch.platform.agencies import get_agency
@@ -72,8 +75,9 @@ def main() -> int:
         from stopwatch.platform.config import get_settings
 
         s = get_settings()
-        results = replay_into_lake(args.directory, get_agency(s.agency_ids[0]), open_blobstore(s.lake_url),
-                                   open_blobstore(s.site_url))
+        results = replay_into_lake(
+            args.directory, get_agency(s.agency_ids[0]), open_blobstore(s.lake_url), open_blobstore(s.site_url)
+        )
         print(json.dumps([{"outcome": r.outcome, "feed_ts": r.feed_ts, "counts": r.counts} for r in results]))
         return 0
     events = replay_directory(args.directory)

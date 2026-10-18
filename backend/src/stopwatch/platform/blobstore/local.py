@@ -62,8 +62,15 @@ class LocalBlobStore:
             with os.fdopen(fd, "wb") as fh:
                 fh.write(data)
             Path(tmp).replace(p)
-            meta = {k: v for k, v in {"content_type": content_type, "cache_control": cache_control,
-                                       "content_encoding": content_encoding}.items() if v}
+            meta = {
+                k: v
+                for k, v in {
+                    "content_type": content_type,
+                    "cache_control": cache_control,
+                    "content_encoding": content_encoding,
+                }.items()
+                if v
+            }
             if meta:
                 p.with_name(p.name + ".meta.json").write_text(json.dumps(meta))
         return self._etag(data)

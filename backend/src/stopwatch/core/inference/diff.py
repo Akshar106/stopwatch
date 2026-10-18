@@ -132,8 +132,14 @@ def infer_events(prev: Snapshot | None, cur: Snapshot, stopped: StoppedIndex | N
                 if pstop.time is None or pstop.time > cur.feed_ts + TRIP_END_GRACE_S:
                     continue
                 method = Method.TRIP_END_FLUSH
-            event = _arrival(ptrip, pstop, prev_ts=prev.feed_ts, cur_ts=cur.feed_ts,
-                             stopped_at=stopped.get((key, seq)), method=method)
+            event = _arrival(
+                ptrip,
+                pstop,
+                prev_ts=prev.feed_ts,
+                cur_ts=cur.feed_ts,
+                stopped_at=stopped.get((key, seq)),
+                method=method,
+            )
             if event is not None:
                 events.append(event)
 
@@ -141,11 +147,18 @@ def infer_events(prev: Snapshot | None, cur: Snapshot, stopped: StoppedIndex | N
         ctrip = cur.trips[key]
         ptrip = prev.trips.get(key)
         if ctrip.status is TripStatus.CANCELED and (ptrip is None or ptrip.status is not TripStatus.CANCELED):
-            events.append(ObservedEvent(
-                kind=EventKind.CANCELED, service_date=_service_date(key.start_date), trip_id=key.trip_id,
-                route_id=ctrip.route_id, direction_id=ctrip.direction_id, trip_status=ctrip.status,
-                observed_at=cur.feed_ts, vehicle_id=ctrip.vehicle_id,
-            ))
+            events.append(
+                ObservedEvent(
+                    kind=EventKind.CANCELED,
+                    service_date=_service_date(key.start_date),
+                    trip_id=key.trip_id,
+                    route_id=ctrip.route_id,
+                    direction_id=ctrip.direction_id,
+                    trip_status=ctrip.status,
+                    observed_at=cur.feed_ts,
+                    vehicle_id=ctrip.vehicle_id,
+                )
+            )
             continue
         for seq in sorted(ctrip.stops):
             cstop = ctrip.stops[seq]
@@ -153,12 +166,20 @@ def infer_events(prev: Snapshot | None, cur: Snapshot, stopped: StoppedIndex | N
                 continue
             was_skipped = ptrip is not None and seq in ptrip.stops and ptrip.stops[seq].skipped
             if not was_skipped:
-                events.append(ObservedEvent(
-                    kind=EventKind.SKIPPED, service_date=_service_date(key.start_date), trip_id=key.trip_id,
-                    route_id=ctrip.route_id, direction_id=ctrip.direction_id, trip_status=ctrip.status,
-                    observed_at=cur.feed_ts, stop_id=cstop.stop_id, stop_sequence=seq,
-                    vehicle_id=ctrip.vehicle_id,
-                ))
+                events.append(
+                    ObservedEvent(
+                        kind=EventKind.SKIPPED,
+                        service_date=_service_date(key.start_date),
+                        trip_id=key.trip_id,
+                        route_id=ctrip.route_id,
+                        direction_id=ctrip.direction_id,
+                        trip_status=ctrip.status,
+                        observed_at=cur.feed_ts,
+                        stop_id=cstop.stop_id,
+                        stop_sequence=seq,
+                        vehicle_id=ctrip.vehicle_id,
+                    )
+                )
     return events
 
 

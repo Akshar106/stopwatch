@@ -75,8 +75,9 @@ def rule_is_live(rule: Rule, now: int, tz: str) -> bool:
     return start.timestamp() - PRE_WINDOW_S <= now <= end.timestamp()
 
 
-def find_candidates(rules: Iterable[Rule], snapshot: Snapshot, scheduled: Mapping[tuple[str, str], int],
-                    now: int, tz: str) -> list[Candidate]:
+def find_candidates(
+    rules: Iterable[Rule], snapshot: Snapshot, scheduled: Mapping[tuple[str, str], int], now: int, tz: str
+) -> list[Candidate]:
     """Pure: which (rule, trip) pairs should alert right now.
 
     ``scheduled`` maps (trip_id, stop_id) to GTFS seconds for trips running today.
@@ -97,8 +98,14 @@ def find_candidates(rules: Iterable[Rule], snapshot: Snapshot, scheduled: Mappin
             sched = gtfs_time_to_epoch(service_date, secs, tz)
             if not (w_start <= sched <= w_end) or sched < now - 300 or sched > now + LOOKAHEAD_S:
                 continue
-            base = {"rule_id": rule.rule_id, "service_date": service_date.isoformat(), "trip_id": key.trip_id,
-                    "route_id": trip.route_id, "stop_id": rule.stop_id, "scheduled_at": _iso(sched)}
+            base = {
+                "rule_id": rule.rule_id,
+                "service_date": service_date.isoformat(),
+                "trip_id": key.trip_id,
+                "route_id": trip.route_id,
+                "stop_id": rule.stop_id,
+                "scheduled_at": _iso(sched),
+            }
             if trip.status is TripStatus.CANCELED:
                 if rule.notify_cancellations:
                     out.append(Candidate(kind="canceled", predicted_at=None, delay_s=None, **base))
@@ -137,8 +144,10 @@ class ScheduleLookup:
         if key not in self._cache:
             path = catalog.table_path(version, "stop_times", self.workdir).as_posix()
             con = connect(self.workdir / "duck-alerts")
-            rows = con.execute(f"SELECT trip_id, stop_id, arrival_s FROM '{path}' WHERE stop_id IN "
-                               f"(SELECT unnest(?))", [sorted(key[1])]).fetchall()
+            rows = con.execute(
+                f"SELECT trip_id, stop_id, arrival_s FROM '{path}' WHERE stop_id IN (SELECT unnest(?))",
+                [sorted(key[1])],
+            ).fetchall()
             con.close()
             self._cache = {key: {(t, s): int(a) for t, s, a in rows if a is not None}}
         return self._cache[key]
@@ -154,15 +163,16 @@ def _default_invoker(function_name: str | None) -> Invoker:
         client = boto3.client("lambda")
 
         def invoke(payload: dict[str, Any]) -> None:
-            client.invoke(FunctionName=f"{function_name}:live", InvocationType="Event",
-                          Payload=json.dumps(payload).encode())
+            client.invoke(
+                FunctionName=f"{function_name}:live", InvocationType="Event", Payload=json.dumps(payload).encode()
+            )
 
         return invoke
 
     def local(payload: dict[str, Any]) -> None:  # local dev: deliver in-process
-        from stopwatch.jobs.notify import handler
+        from .notify import deliver_with_settings
 
-        handler(payload, None)
+        deliver_with_settings(payload)
 
     return local
 
@@ -171,9 +181,14 @@ class _Lookup(Protocol):
     def for_stops(self, stop_ids: Iterable[str], service_date: date) -> Mapping[tuple[str, str], int]: ...
 
 
-def make_alert_hook(agency: AgencyConfig, lake: BlobStore, notify_function_name: str | None,
-                    invoker: Invoker | None = None, workdir: Path = Path("/tmp/stopwatch-alerts"),  # noqa: S108
-                    lookup: _Lookup | None = None) -> Callable[[Snapshot, IngestState, int], None]:
+def make_alert_hook(
+    agency: AgencyConfig,
+    lake: BlobStore,
+    notify_function_name: str | None,
+    invoker: Invoker | None = None,
+    workdir: Path = Path("/tmp/stopwatch-alerts"),  # noqa: S108
+    lookup: _Lookup | None = None,
+) -> Callable[[Snapshot, IngestState, int], None]:
     lookup = lookup or ScheduleLookup(lake, agency, workdir)
     send = invoker or _default_invoker(notify_function_name)
 
@@ -184,8 +199,11 @@ def make_alert_hook(agency: AgencyConfig, lake: BlobStore, notify_function_name:
                 return
             today = datetime.fromtimestamp(now, ZoneInfo(agency.timezone)).date()
             scheduled = lookup.for_stops({r.stop_id for r in rules}, today)
-            fresh = [c for c in find_candidates(rules, cur, scheduled, now, agency.timezone)
-                     if c.dedupe_key not in state.alerts_sent]
+            fresh = [
+                c
+                for c in find_candidates(rules, cur, scheduled, now, agency.timezone)
+                if c.dedupe_key not in state.alerts_sent
+            ]
             if fresh:
                 send({"agency_id": agency.id, "candidates": [asdict(c) for c in fresh]})
                 state.alerts_sent.extend(c.dedupe_key for c in fresh)

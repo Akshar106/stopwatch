@@ -23,8 +23,17 @@ from stopwatch.core.gtfs import (
 TZ = "America/New_York"
 
 
-@pytest.mark.parametrize(("raw", "secs"), [("00:00:00", 0), ("08:05:30", 29130), ("23:59:59", 86399),
-                                            ("24:00:00", 86400), ("25:10:00", 90600), ("7:05:00", 25500)])
+@pytest.mark.parametrize(
+    ("raw", "secs"),
+    [
+        ("00:00:00", 0),
+        ("08:05:30", 29130),
+        ("23:59:59", 86399),
+        ("24:00:00", 86400),
+        ("25:10:00", 90600),
+        ("7:05:00", 25500),
+    ],
+)
 def test_parse_gtfs_time(raw: str, secs: int) -> None:
     assert parse_gtfs_time(raw) == secs
 
@@ -90,8 +99,10 @@ def test_parse_gtfs_date() -> None:
 
 def test_active_service_ids_with_exceptions() -> None:
     weekday = (True, True, True, True, True, False, False)
-    cal = [CalendarRow("WKD", weekday, date(2026, 9, 1), date(2026, 12, 31)),
-           CalendarRow("SAT", (False,) * 5 + (True, False), date(2026, 9, 1), date(2026, 12, 31))]
+    cal = [
+        CalendarRow("WKD", weekday, date(2026, 9, 1), date(2026, 12, 31)),
+        CalendarRow("SAT", (False,) * 5 + (True, False), date(2026, 9, 1), date(2026, 12, 31)),
+    ]
     holiday = date(2026, 11, 26)  # Thursday: weekday service removed, Sunday-like service added
     exc = [CalendarException("WKD", holiday, 2), CalendarException("HOLIDAY", holiday, 1)]
     assert active_service_ids(date(2026, 11, 25), cal, exc) == {"WKD"}

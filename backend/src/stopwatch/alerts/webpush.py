@@ -14,8 +14,9 @@ class PushTarget:
     auth: str
 
 
-def send_web_push(target: PushTarget, message: dict[str, Any], *, vapid_private_key: str, subject: str,
-                  ttl: int = 600) -> str:
+def send_web_push(
+    target: PushTarget, message: dict[str, Any], *, vapid_private_key: str, subject: str, ttl: int = 600
+) -> str:
     """Returns "ok", "gone" (subscription expired: delete it) or "error:<status>"."""
     from pywebpush import WebPushException, webpush
 

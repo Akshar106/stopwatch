@@ -91,13 +91,13 @@ def _maybe_publish_health(deps: TickDeps, agency: AgencyConfig, st: IngestState,
     if st.last_health_publish_at is not None and now - st.last_health_publish_at < HEALTH_EVERY_S:
         return
     body = json.dumps(build_health(agency.id, st, now), separators=(",", ":")).encode()
-    deps.site.put(health_key(agency.id), body, content_type="application/json",
-                  cache_control="public, max-age=60")
+    deps.site.put(health_key(agency.id), body, content_type="application/json", cache_control="public, max-age=60")
     st.last_health_publish_at = now
 
 
-def _maybe_sample_raw(deps: TickDeps, agency: AgencyConfig, st: IngestState, feed_ts: int,
-                      tu: bytes, vp: bytes | None) -> None:
+def _maybe_sample_raw(
+    deps: TickDeps, agency: AgencyConfig, st: IngestState, feed_ts: int, tu: bytes, vp: bytes | None
+) -> None:
     hour = datetime.fromtimestamp(feed_ts, UTC).strftime("%Y-%m-%d/%H")
     if st.last_raw_sample_hour == hour:
         return
@@ -143,8 +143,9 @@ def run_tick(agency: AgencyConfig, deps: TickDeps) -> TickResult:
                     merged[k] = obs.ts
             events = infer_events(prev, cur, merged)
             if events:
-                deps.lake.put(events_key(agency.id, cur.feed_ts), encode_events(events),
-                              content_type="application/gzip")
+                deps.lake.put(
+                    events_key(agency.id, cur.feed_ts), encode_events(events), content_type="application/gzip"
+                )
             counts = Counter(e.kind.value for e in events)
             arrivals = [e for e in events if e.kind is EventKind.ARRIVAL]
             result.counts = dict(counts)

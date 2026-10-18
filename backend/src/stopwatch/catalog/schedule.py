@@ -46,8 +46,9 @@ class ScheduleCatalog:
             raise ScheduleNotImportedError(f"no schedule imported for {agency_id}; run schedule-import")
         self.current: dict[str, Any] = json.loads(blob.data)
         self.versions = [
-            VersionInfo(v["version"], date.fromisoformat(v["start_date"]), date.fromisoformat(v["end_date"]),
-                        v["imported_at"])
+            VersionInfo(
+                v["version"], date.fromisoformat(v["start_date"]), date.fromisoformat(v["end_date"]), v["imported_at"]
+            )
             for v in self.current.get("versions", [])
         ]
 

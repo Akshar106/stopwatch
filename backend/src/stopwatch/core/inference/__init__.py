@@ -13,6 +13,17 @@ from .model import (
 )
 
 __all__ = [
-    "Confidence", "EventKind", "Method", "ObservedEvent", "Snapshot", "StopPrediction", "TripKey",
-    "TripState", "TripStatus", "VehicleStop", "confidence_for", "infer_events", "update_stopped_index",
+    "Confidence",
+    "EventKind",
+    "Method",
+    "ObservedEvent",
+    "Snapshot",
+    "StopPrediction",
+    "TripKey",
+    "TripState",
+    "TripStatus",
+    "VehicleStop",
+    "confidence_for",
+    "infer_events",
+    "update_stopped_index",
 ]

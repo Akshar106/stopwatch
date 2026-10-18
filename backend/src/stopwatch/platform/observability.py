@@ -34,8 +34,9 @@ ALLOWED_METRICS: dict[str, MetricUnit] = {
 }
 
 # Keys that must never reach logs (privacy: emails, commute labels, tokens, secrets).
-_SCRUB_KEYS = re.compile(r"(email|label|token|secret|password|cookie|authorization|p256dh|auth_secret|endpoint)",
-                         re.IGNORECASE)
+_SCRUB_KEYS = re.compile(
+    r"(email|label|token|secret|password|cookie|authorization|p256dh|auth_secret|endpoint)", re.IGNORECASE
+)
 
 
 def scrub(value: Any) -> Any:
@@ -54,8 +55,9 @@ class _ScrubbingLogger:
         self._pt = Logger(service=service, level=os.environ.get("LOG_LEVEL", "INFO")) if IN_LAMBDA else None
         self._std = logging.getLogger(f"stopwatch.{service}")
         if not IN_LAMBDA and not logging.getLogger().handlers:
-            logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"),
-                                format="%(asctime)s %(levelname)s %(name)s %(message)s")
+            logging.basicConfig(
+                level=os.environ.get("LOG_LEVEL", "INFO"), format="%(asctime)s %(levelname)s %(name)s %(message)s"
+            )
 
     @property
     def powertools(self) -> Logger | None:
@@ -129,6 +131,6 @@ def traced(name: str) -> Iterator[None]:
             with xray_recorder.in_subsegment(name):
                 yield
             return
-        except Exception:  # noqa: BLE001 - tracing must never break the request
+        except Exception:  # noqa: BLE001, S110 - tracing must never break the request
             pass
     yield

@@ -77,8 +77,9 @@ def fetch_bytes(
                         if total > max_bytes:
                             raise ResponseTooLargeError(f"{url}: > {max_bytes} bytes")
                         chunks.append(chunk)
-                    return FetchResult(b"".join(chunks), 200, resp.headers.get("etag"),
-                                       resp.headers.get("last-modified"))
+                    return FetchResult(
+                        b"".join(chunks), 200, resp.headers.get("etag"), resp.headers.get("last-modified")
+                    )
             except ResponseTooLargeError:
                 raise
             except FetchError as exc:
