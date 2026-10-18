@@ -63,7 +63,7 @@ Every arrow that crosses a boundary has controls: validation, authentication, le
 
 ## 2. Authentication
 
-- **Google OIDC**, authorization-code flow with **PKCE**, `state` and `nonce`. The ID token is verified for issuer, audience, expiry and nonce against Google's JWKS, which Authlib caches. Only the `openid email profile` scopes are requested.
+- **Google OIDC**, authorization-code flow with **PKCE**, `state` and `nonce`. The ID token is verified for issuer, audience, expiry and nonce against Google's JWKS (PyJWT's `PyJWKClient`, cached per warm container). Only the `openid email profile` scopes are requested.
 - **Server-side sessions:**
   - A 256-bit random token in the cookie `__Host-sw_session` (HttpOnly; Secure; SameSite=Lax; Path=/).
   - Only its SHA-256 hash is stored in `sessions`, so a database leak doesn't leak live sessions.
