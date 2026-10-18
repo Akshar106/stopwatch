@@ -1,0 +1,82 @@
+# Local development stack: `make dev`. Costs $0 and uses the same code paths as the cloud,
+# with file-system storage in ./.localdata instead of S3.
+name: stopwatch
+
+x-backend: &backend
+  build:
+    context: ./backend
+    dockerfile: Dockerfile.dev
+  env_file:
+    - path: .env
+      required: false
+  environment: &backend-env
+    STOPWATCH_ENV: local
+    DATABASE_URL: postgresql://stopwatch_app:app-local-only@db:5432/stopwatch
+    DATABASE_OWNER_URL: postgresql://stopwatch_owner:owner-local-only@db:5432/stopwatch
+    LAKE_URL: file:///data/lake
+    SITE_URL: file:///data/site
+    PUBLIC_BASE_URL: http://localhost:5173
+  volumes:
+    - ./backend/src:/app/src
+    - ./backend/migrations:/app/migrations
+    - ./.localdata:/data
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: stopwatch_owner
+      POSTGRES_PASSWORD: owner-local-only
+      POSTGRES_DB: stopwatch
+    ports:
+      - "5433:5432"
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+      - ./scripts/db/init-local.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stopwatch_owner -d stopwatch"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  migrate:
+    <<: *backend
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    <<: *backend
+    command: ["uvicorn", "stopwatch.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--app-dir", "src"]
+    ports:
+      - "8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    <<: *backend
+    # Ingest every minute against the live MBTA feed; `--mode replay` uses recorded fixtures instead.
+    command: ["python", "-m", "stopwatch.jobs.local_scheduler", "--mode", "${WORKER_MODE:-live}"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    image: node:22-alpine
+    working_dir: /app
+    command: ["sh", "-c", "npm ci --no-audit --no-fund && npm run dev -- --host 0.0.0.0"]
+    environment:
+      VITE_PROXY_TARGET: http://api:8000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - web_node_modules:/app/node_modules
+    depends_on:
+      - api
+
+volumes:
+  dbdata:
+  web_node_modules:

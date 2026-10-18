@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+.hypothesis/
+# Node
+node_modules/
+frontend/dist/
+frontend/playwright-report/
+frontend/test-results/
+.lighthouseci/
+# Local data & secrets
+.env
+.env.*
+!.env.example
+.localdata/
+backend/tests/fixtures/rt_snapshots/full/
+# Build artifacts
+dist/
+build/
+*.zip
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+.terraform.lock.hcl.bak
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
