@@ -70,7 +70,7 @@ make dev       # Postgres, migrations, API, live worker and web at http://localh
 make demo      # same stack, but the worker replays recorded MBTA snapshots (works offline)
 ```
 
-The worker imports the MBTA schedule on first start (~10 s), ingests every minute, and publishes a "today so far" build every 15 minutes. Sign in with **Try a demo account**. Google sign-in needs `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` in `.env` (see `.env.example`).
+If port 8000 is taken on your machine, run `API_PORT=8010 make dev` (the web app still talks to the API inside Docker). The worker imports the MBTA schedule on first start (~10 s), ingests every minute, and publishes a "today so far" build every 15 minutes. Sign in with **Try a demo account**. Google sign-in needs `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` in `.env` (see `.env.example`).
 
 Useful targets (`make help` lists all of them):
 
