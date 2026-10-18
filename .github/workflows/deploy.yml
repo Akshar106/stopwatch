@@ -1,0 +1,114 @@
+# Release pipeline (docs/06 §2): build once -> staging -> (manual approval) -> prod.
+#
+# The Lambda zips and the SPA are built exactly once, checksummed, and the same bytes are promoted
+# to both environments (each deploy job verifies SHA-256 before using them). AWS access is keyless:
+# each environment job assumes stopwatch-deploy-<env> through GitHub OIDC, and the IAM trust policy
+# only accepts tokens issued for that GitHub environment. The "prod" environment is configured
+# with required reviewers, so prod credentials cannot be minted without a human approval.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false # never interrupt a half-finished terraform apply
+
+env:
+  UV_VERSION: "0.12.22"
+  PYTHON_VERSION: "3.13"
+  NODE_VERSION: "22"
+
+jobs:
+  build:
+    name: Build once (Lambda zips + SPA)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Package Lambda zips (arm64, python3.13; fails above 250 MB unzipped)
+        run: scripts/package_lambda.sh
+
+      - name: Build SPA
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Checksums
+        run: |
+          (cd frontend/dist && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum) > dist/SPA_SHA256SUMS
+          {
+            echo "### Build artifacts (${GITHUB_SHA::12})"
+            echo '```text'
+            cat dist/SHA256SUMS
+            echo "SPA: $(wc -l < dist/SPA_SHA256SUMS) files, manifest sha256 $(sha256sum dist/SPA_SHA256SUMS | cut -c1-64)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lambda-packages
+          path: |
+            dist/*.zip
+            dist/*.base64sha256
+            dist/SHA256SUMS
+            dist/SPA_SHA256SUMS
+          if-no-files-found: error
+          compression-level: 0 # zips are already compressed
+          retention-days: 30
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: spa
+          path: frontend/dist
+          if-no-files-found: error
+          retention-days: 30
+
+  staging:
+    name: Deploy staging
+    needs: build
+    uses: ./.github/workflows/deploy-environment.yml
+    permissions:
+      contents: read
+      id-token: write # OIDC -> stopwatch-deploy-staging
+    with:
+      environment: staging
+      require_manifest: false # staging ingest is off by default, so there may be no published data
+    secrets: inherit
+
+  prod:
+    name: Deploy prod
+    needs: staging
+    uses: ./.github/workflows/deploy-environment.yml
+    permissions:
+      contents: read
+      id-token: write # OIDC -> stopwatch-deploy-prod (after manual approval)
+    with:
+      environment: prod
+      # Set the repository variable PROD_REQUIRE_MANIFEST=false until the first rollup has published.
+      require_manifest: ${{ vars.PROD_REQUIRE_MANIFEST != 'false' }}
+      rehearse_migrations: true # on a Neon branch, when the NEON_API_KEY secret exists
+      rollback_on_failure: true
+    secrets: inherit

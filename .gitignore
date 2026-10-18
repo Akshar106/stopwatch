@@ -25,7 +25,9 @@ backend/tests/fixtures/rt_snapshots/full/
 dist/
 build/
 *.zip
-# Terraform
+# Terraform (tfvars hold your email/owner; commit only *.tfvars.example)
+terraform.tfvars
+*.auto.tfvars
 .terraform/
 *.tfstate
 *.tfstate.*

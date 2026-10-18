@@ -1,0 +1,158 @@
+# Nightly operations (docs/06 §2, docs/05 §10.5):
+#   backup       pg_dump of prod -> s3://<lake>/backups/postgres/YYYY-MM-DD.dump (30-day lifecycle)
+#   drift-check  live MBTA feed vs our parser's assumptions; failure opens/updates a GitHub issue
+#   lighthouse   Lighthouse CI (mobile) against the real staging stack (CDN, headers, live data);
+#                PRs run the same budgets against a mocked preview in ci.yml
+name: Nightly
+
+on:
+  schedule:
+    - cron: "17 7 * * *" # 07:17 UTC = 02:17-03:17 ET: before maintenance checks for the dump at 05:00 ET
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    name: Postgres backup (prod)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # A separate GitHub environment WITHOUT required reviewers, so the scheduled job can run
+    # unattended. Its role (stopwatch-backup-prod) may only read database_owner_url and write
+    # backups/postgres/* in the lake.
+    environment: prod-backup
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install PostgreSQL 17 client (pg_dump must be >= the server version)
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSo /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_BACKUP_ROLE_ARN }}
+          role-session-name: gha-backup-${{ github.run_id }}
+          aws-region: us-east-1
+
+      - name: pg_dump -> S3
+        env:
+          LAKE_BUCKET: ${{ vars.LAKE_BUCKET }}
+          AWS_REGION: us-east-1
+        run: |
+          set -euo pipefail
+          url="$(aws ssm get-parameter --name /stopwatch/prod/database_owner_url --with-decryption --query Parameter.Value --output text)"
+          echo "::add-mask::$url"
+          if [ "$url" = unset ]; then echo "::error::/stopwatch/prod/database_owner_url is not set"; exit 1; fi
+          DATABASE_OWNER_URL="$url" scripts/backup_db.sh
+
+  drift-check:
+    name: MBTA feed drift check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write # open or update the feed-drift issue
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.12.22"
+          python-version: "3.13"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Run drift check
+        id: drift
+        working-directory: backend
+        run: |
+          uv sync --frozen
+          set +e
+          uv run python -m stopwatch.ingest.drift_check > "$RUNNER_TEMP/drift.txt" 2>&1
+          code=$?
+          set -e
+          cat "$RUNNER_TEMP/drift.txt"
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+
+      - name: Open or update the feed-drift issue
+        if: steps.drift.outputs.exit_code != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          body="$RUNNER_TEMP/issue.md"
+          {
+            echo "The nightly feed-drift check exited with code ${{ steps.drift.outputs.exit_code }} on $(date -u +%Y-%m-%d)."
+            echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID} · Runbook: docs/runbooks/RB-2.md"
+            echo
+            echo '```text'
+            tail -c 60000 "$RUNNER_TEMP/drift.txt"
+            echo '```'
+          } > "$body"
+          gh label create feed-drift --color D93F0B --description "Nightly MBTA feed-drift check" 2>/dev/null || true
+          existing="$(gh issue list --label feed-drift --state open --limit 1 --json number --jq '.[0].number // empty')"
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file "$body"
+          else
+            gh issue create --title "Feed drift detected by the nightly check" --label feed-drift --body-file "$body"
+          fi
+          exit 1 # keep the run red as well
+
+  lighthouse:
+    name: Lighthouse CI (staging, mobile)
+    if: vars.STAGING_URL != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+
+      - name: Run Lighthouse CI
+        env:
+          STAGING_URL: ${{ vars.STAGING_URL }}
+        run: |
+          cat > "$RUNNER_TEMP/lighthouserc.json" <<EOF
+          {
+            "ci": {
+              "collect": {
+                "url": ["${STAGING_URL%/}/", "${STAGING_URL%/}/s/mbta/64", "${STAGING_URL%/}/r/mbta/Red", "${STAGING_URL%/}/health"],
+                "numberOfRuns": 3,
+                "settings": { "formFactor": "mobile", "throttlingMethod": "simulate", "onlyCategories": ["performance", "accessibility", "best-practices"] }
+              },
+              "assert": {
+                "assertions": {
+                  "categories:performance": ["error", { "minScore": 0.9 }],
+                  "categories:accessibility": ["error", { "minScore": 0.9 }],
+                  "largest-contentful-paint": ["error", { "maxNumericValue": 2500 }]
+                }
+              },
+              "upload": { "target": "filesystem", "outputDir": "lhci-report" }
+            }
+          }
+          EOF
+          npx --yes @lhci/cli@0.15.1 autorun --config="$RUNNER_TEMP/lighthouserc.json"
+
+      - name: Upload Lighthouse report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lighthouse-report
+          path: lhci-report
+          if-no-files-found: ignore
+          retention-days: 14

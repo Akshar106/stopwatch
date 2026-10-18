@@ -1,0 +1,57 @@
+# Manually destroy the staging environment (make down ENV=staging). The state bucket, the GitHub
+# deploy roles (infra/bootstrap) and the Neon project are not touched, so `make up` / the next
+# deploy recreates staging from scratch. Prod can only be destroyed locally with ALLOW_DATA_DESTROY=1.
+name: Teardown staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type "destroy staging" to confirm
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy # never overlap a deploy
+  cancel-in-progress: false
+
+jobs:
+  destroy:
+    name: terraform destroy (staging)
+    if: inputs.confirm == 'destroy staging'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: staging
+    permissions:
+      contents: read
+      id-token: write # OIDC -> stopwatch-deploy-staging
+    env:
+      AWS_REGION: us-east-1
+      AUTO_APPROVE: "1"
+      TF_IN_AUTOMATION: "1"
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      TF_VAR_owner: ${{ vars.OWNER }}
+      TF_VAR_github_repo: ${{ github.repository }}
+      TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: "1.16.4"
+          terraform_wrapper: false
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: gha-teardown-${{ github.run_id }}
+          aws-region: us-east-1
+          role-duration-seconds: 3600
+
+      - name: Destroy
+        run: make down ENV=staging

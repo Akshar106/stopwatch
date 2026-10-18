@@ -1,0 +1,107 @@
+# Project-specific Semgrep rules (docs/05 §4, docs/06 §7). Run in CI next to p/python,
+# p/typescript and p/secrets:  semgrep scan --config .semgrep/stopwatch.yml
+rules:
+  - id: stopwatch-no-string-built-sql
+    message: >-
+      SQL text built with an f-string, %-formatting, .format() or concatenation. Use SQLAlchemy Core
+      expressions or bound parameters (text("... where id = :id"), {"id": ...}) so input can never change
+      the statement (docs/05 §4, Injection).
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: security
+      cwe: "CWE-89: Improper Neutralization of Special Elements used in an SQL Command"
+    paths:
+      include:
+        - "backend/src/**"
+        - "backend/migrations/**"
+    patterns:
+      - pattern-either:
+          - pattern: $SQL(f"...", ...)
+          - pattern: $SQL("..." % $X, ...)
+          - pattern: $SQL("...".format(...), ...)
+          - pattern: $SQL("..." + $X, ...)
+          - pattern: $SQL($X + "...", ...)
+          - patterns:
+              - pattern-inside: |
+                  $Q = f"..."
+                  ...
+              - pattern: $SQL($Q, ...)
+          - patterns:
+              - pattern-inside: |
+                  $Q = "...".format(...)
+                  ...
+              - pattern: $SQL($Q, ...)
+          - patterns:
+              - pattern-inside: |
+                  $Q = "..." % $X
+                  ...
+              - pattern: $SQL($Q, ...)
+      # $SQL is sqlalchemy.text(...) or any connection's exec_driver_sql(...)
+      - metavariable-pattern:
+          metavariable: $SQL
+          pattern-either:
+            - pattern: sqlalchemy.text
+            - pattern: sqlalchemy.sql.text
+            - pattern: text
+            - pattern: $CONN.exec_driver_sql
+
+  - id: stopwatch-no-tls-verify-false
+    message: >-
+      TLS certificate verification disabled. Every outbound call (MBTA feeds, Google OIDC, push services,
+      LLM API) must verify certificates.
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: security
+      cwe: "CWE-295: Improper Certificate Validation"
+    pattern-either:
+      - pattern: requests.$FN(..., verify=False, ...)
+      - pattern: httpx.$FN(..., verify=False, ...)
+      - patterns:
+          - pattern-inside: |
+              $S = requests.Session(...)
+              ...
+          - pattern-either:
+              - pattern: $S.$FN(..., verify=False, ...)
+              - pattern: $S.verify = False
+      - patterns:
+          - pattern-inside: |
+              $C = httpx.$CLIENT(...)
+              ...
+          - pattern: $C.$FN(..., verify=False, ...)
+
+  - id: stopwatch-no-pii-in-logs
+    message: >-
+      Logging a field named like an email, commute label or token. Logs carry user ids only, never emails,
+      labels or tokens (docs/05 §5, docs/06 §8). Log an id instead, or drop the field.
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: privacy
+      cwe: "CWE-532: Insertion of Sensitive Information into Log File"
+    patterns:
+      - pattern-either:
+          - patterns:
+              - pattern: $LOG.$LEVEL(..., $KW=$V, ...)
+              - metavariable-regex:
+                  metavariable: $KW
+                  regex: (?i)^(email|e_mail|\w*_email|label|\w*_label|token|\w*_token)$
+          - patterns:
+              - pattern: '$LOG.$LEVEL(..., extra={..., $KEY: $V, ...}, ...)'
+              - metavariable-regex:
+                  metavariable: $KEY
+                  regex: (?i)^["'](email|e_mail|\w*_email|label|\w*_label|token|\w*_token)["']$
+          - patterns:
+              - pattern-either:
+                  - pattern: $LOG.$LEVEL(..., $OBJ.$ATTR, ...)
+                  - pattern: $LOG.$LEVEL(..., f"...{$OBJ.$ATTR}...", ...)
+              - metavariable-regex:
+                  metavariable: $ATTR
+                  regex: (?i)^(email|label|token|\w*_token)$
+      - metavariable-regex:
+          metavariable: $LOG
+          regex: (?i)^(\w+\.)*_?(log|logger|logging)$
+      - metavariable-regex:
+          metavariable: $LEVEL
+          regex: ^(debug|info|warning|warn|error|exception|critical|log)$
