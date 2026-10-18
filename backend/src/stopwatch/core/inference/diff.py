@@ -144,40 +144,40 @@ def infer_events(prev: Snapshot | None, cur: Snapshot, stopped: StoppedIndex | N
                 events.append(event)
 
     for key in sorted(cur.trips):
-        ctrip = cur.trips[key]
-        ptrip = prev.trips.get(key)
-        if ctrip.status is TripStatus.CANCELED and (ptrip is None or ptrip.status is not TripStatus.CANCELED):
+        now_trip = cur.trips[key]
+        before = prev.trips.get(key)
+        if now_trip.status is TripStatus.CANCELED and (before is None or before.status is not TripStatus.CANCELED):
             events.append(
                 ObservedEvent(
                     kind=EventKind.CANCELED,
                     service_date=_service_date(key.start_date),
                     trip_id=key.trip_id,
-                    route_id=ctrip.route_id,
-                    direction_id=ctrip.direction_id,
-                    trip_status=ctrip.status,
+                    route_id=now_trip.route_id,
+                    direction_id=now_trip.direction_id,
+                    trip_status=now_trip.status,
                     observed_at=cur.feed_ts,
-                    vehicle_id=ctrip.vehicle_id,
+                    vehicle_id=now_trip.vehicle_id,
                 )
             )
             continue
-        for seq in sorted(ctrip.stops):
-            cstop = ctrip.stops[seq]
-            if not cstop.skipped:
+        for seq in sorted(now_trip.stops):
+            now_stop = now_trip.stops[seq]
+            if not now_stop.skipped:
                 continue
-            was_skipped = ptrip is not None and seq in ptrip.stops and ptrip.stops[seq].skipped
+            was_skipped = before is not None and seq in before.stops and before.stops[seq].skipped
             if not was_skipped:
                 events.append(
                     ObservedEvent(
                         kind=EventKind.SKIPPED,
                         service_date=_service_date(key.start_date),
                         trip_id=key.trip_id,
-                        route_id=ctrip.route_id,
-                        direction_id=ctrip.direction_id,
-                        trip_status=ctrip.status,
+                        route_id=now_trip.route_id,
+                        direction_id=now_trip.direction_id,
+                        trip_status=now_trip.status,
                         observed_at=cur.feed_ts,
-                        stop_id=cstop.stop_id,
+                        stop_id=now_stop.stop_id,
                         stop_sequence=seq,
-                        vehicle_id=ctrip.vehicle_id,
+                        vehicle_id=now_trip.vehicle_id,
                     )
                 )
     return events
