@@ -1,4 +1,4 @@
-import { expect, test } from "./support/fixtures";
+import { expect, expectChartDrawn, test } from "./support/fixtures";
 
 test("search → stop page → heatmap and cell details", async ({ page, mocks }) => {
   await page.goto("/");
@@ -32,7 +32,7 @@ test("search → stop page → heatmap and cell details", async ({ page, mocks }
   await expect(detail.getByText("Typical delay (p50)")).toBeVisible();
   await expect(detail.getByText("Excess wait time", { exact: true })).toBeVisible();
   // The delay histogram (lazy Observable Plot chunk) renders an SVG.
-  await expect(detail.locator("figure svg").first()).toBeVisible();
+  await expectChartDrawn(detail.locator("figure").first());
 
   // Thin-data cells say so.
   await page.getByTestId("cell-sun-7").click();
@@ -72,9 +72,7 @@ test("station search groups platforms and the route page compares stops", async 
   );
   await expect(page.getByRole("button", { name: /Park Street/, pressed: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "At Park Street" })).toBeVisible();
-  await expect(
-    page.getByRole("figure", { name: "Route-level reliability by week" }).locator("svg").first(),
-  ).toBeVisible();
+  await expectChartDrawn(page.getByRole("figure", { name: "Route-level reliability by week" }));
   await expect(page.getByRole("img", { name: /of scheduled trips observed/ })).toBeVisible();
 
   // Live predictions were requested from the MBTA, not from Stopwatch.

@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 
 const SITE = "Stopwatch";
 
@@ -43,4 +43,26 @@ function nowBucket(ms: number) {
   const next = { t, date: new Date() };
   buckets.set(ms, next);
   return next;
+}
+
+/**
+ * True once the element comes within a screen of the viewport (and stays true). Without
+ * IntersectionObserver (old browsers, jsdom) it is true immediately.
+ */
+export function useNearViewport<T extends Element>(): [RefObject<T | null>, boolean] {
+  const ref = useRef<T>(null);
+  const [near, setNear] = useState(() => typeof IntersectionObserver === "undefined");
+  useEffect(() => {
+    const el = ref.current;
+    if (near || !el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) setNear(true);
+      },
+      { rootMargin: "100% 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [near]);
+  return [ref, near];
 }
