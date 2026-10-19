@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
-import { expect, test, type Mocks } from "./support/fixtures";
+import { expect, expectChartDrawn, test, type Mocks } from "./support/fixtures";
 
 async function expectNoSeriousViolations(page: Page) {
   const results = await new AxeBuilder({ page })
@@ -35,7 +35,7 @@ const pages: {
     path: "/s/mbta/64?route=1&dir=0&cell=wkd-8",
     ready: async (page) => {
       await expect(page.getByTestId("cell-wkd-8")).toBeVisible();
-      await expect(page.locator("figure svg").first()).toBeVisible();
+      await expectChartDrawn(page.locator("figure").first());
       await expect(
         page.getByRole("region", { name: "Right now" }).getByRole("table"),
       ).toBeVisible();
@@ -46,12 +46,7 @@ const pages: {
     path: "/r/mbta/1",
     ready: async (page) => {
       await expect(page.getByRole("tablist")).toBeVisible();
-      await expect(
-        page
-          .getByRole("figure", { name: "Route-level reliability by week" })
-          .locator("svg")
-          .first(),
-      ).toBeVisible();
+      await expectChartDrawn(page.getByRole("figure", { name: "Route-level reliability by week" }));
     },
   },
   {
@@ -81,7 +76,7 @@ const pages: {
     path: "/health",
     ready: async (page) => {
       await expect(page.getByText("Operational")).toBeVisible();
-      await expect(page.locator("figure svg").first()).toBeVisible();
+      await expectChartDrawn(page.locator("figure").first());
     },
   },
 ];

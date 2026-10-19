@@ -1,4 +1,4 @@
-import { test as base, expect, type Page } from "@playwright/test";
+import { test as base, expect, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import type { RouteDetail } from "../../src/lib/types";
 import {
@@ -109,3 +109,9 @@ export const test = base.extend<{ mocks: Mocks }>({
 });
 
 export { expect };
+
+/** Charts only load once scrolled near the viewport, so bring the figure into view first. */
+export async function expectChartDrawn(figure: Locator) {
+  await figure.scrollIntoViewIfNeeded();
+  await expect(figure.locator("svg").first()).toBeVisible();
+}
