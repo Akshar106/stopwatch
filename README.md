@@ -4,7 +4,7 @@
 
 > Independent, unofficial estimates. Not affiliated with the MBTA.
 
-**Status (2026-10-18):** built and tested locally end to end against the live MBTA feed. Cloud infrastructure is written as Terraform but **not yet deployed** (see [Deploy](#deploy-to-aws)).
+**Status (2026-10-19):** live on AWS **staging** at **https://d17jryznsw1c4l.cloudfront.net**, collecting the MBTA feed every minute since 2026-10-19 19:16 UTC. Reliability views fill in as days accumulate (28-day window), and the numbers below are still from local runs. Prod is not deployed.
 
 ## What it does
 
@@ -107,7 +107,7 @@ For the frontend, run `npm test`, `npm run test:e2e` and `npm run build` in `fro
 
 Everything is Terraform under [`infra/`](infra/). A GitHub Actions pipeline builds once, deploys to staging, runs smoke tests, and promotes to prod behind a manual approval. One-time setup:
 
-1. **AWS account:** MFA on root and an admin user. Run `make bootstrap GITHUB_REPO=<owner/repo> OWNER=<you>`, which creates the Terraform state bucket and the GitHub OIDC deploy roles. Ask AWS to raise the Lambda concurrency quota: new accounts allow 10, and each environment reserves 17.
+1. **AWS account:** MFA on root and an admin user. Run `make bootstrap GITHUB_REPO=<owner/repo> OWNER=<you>`, which creates the Terraform state bucket and the GitHub OIDC deploy roles. Ask AWS to raise the Lambda concurrency quota: new accounts allow 10, and each environment reserves 17 (until it's approved, deploy with `reserve_concurrency = false`; see [`infra/README.md`](infra/README.md)).
 2. **Neon:** create a free project with an owner role and an app role, then run the migrations (`make migrate-cloud ENV=staging`).
 3. **Google OAuth client:** redirect URI `https://<your-cloudfront-domain>/api/v1/auth/callback`.
 4. **Infrastructure:** `make up ENV=staging`, then set the SSM parameters (`database_url`, `session_secret`, OAuth, and optionally VAPID keys and a Groq API key) with `aws ssm put-parameter --overwrite`. Terraform creates them as `unset`, so these secrets never enter its state (the CloudFront origin secret is the one documented exception). CI needs repository variables and environments; [`infra/README.md`](infra/README.md) lists them.
