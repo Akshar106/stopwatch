@@ -16,6 +16,8 @@ x-backend: &backend
     LAKE_URL: file:///data/lake
     SITE_URL: file:///data/site
     PUBLIC_BASE_URL: http://localhost:5173
+    # Local-only default so demo sign-in works out of the box; .env overrides it. Never used in the cloud.
+    SESSION_SECRET: ${SESSION_SECRET:-local-dev-only-session-secret-change-me-0123456789abcdef}
   volumes:
     - ./backend/src:/app/src
     - ./backend/migrations:/app/migrations

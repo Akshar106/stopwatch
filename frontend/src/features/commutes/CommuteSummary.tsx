@@ -91,8 +91,11 @@ export function CommuteSummary({ commute, agency }: { commute: Commute; agency: 
             <>
               {" "}
               ({trend.delta_pts >= 0 ? "+" : "−"}
-              {Math.abs(trend.delta_pts).toFixed(1)} pts vs the previous {trend.weeks_compared}{" "}
-              weeks)
+              {Math.abs(trend.delta_pts).toFixed(1)} pts vs{" "}
+              {trend.weeks_compared === 1
+                ? "the previous week"
+                : `the previous ${trend.weeks_compared} weeks`}
+              )
             </>
           )}
         </p>
