@@ -84,6 +84,8 @@ locals {
     POWERTOOLS_SERVICE_NAME      = "stopwatch"
     POWERTOOLS_METRICS_NAMESPACE = "Stopwatch"
     LOG_LEVEL                    = var.log_level
+    # libpq's CA bundle for the Neon URLs (sslmode=verify-full): certifi ships in both packages via httpx.
+    PGSSLROOTCERT = "/var/task/certifi/cacert.pem"
   }
 
   # --- Entry points: docs/contracts.md §1 (handler, package, memory/timeout, /tmp, concurrency) ----
@@ -295,7 +297,7 @@ module "functions" {
   memory_mb                = each.value.memory
   timeout_s                = each.value.timeout
   ephemeral_storage_mb     = each.value.tmp
-  reserved_concurrency     = each.value.concurrency
+  reserved_concurrency     = var.reserve_concurrency ? each.value.concurrency : -1
   ssm_prefix               = each.value.ssm ? local.ssm_prefix : null
   iam_statements           = each.value.statements
   async_invoke             = each.value.async

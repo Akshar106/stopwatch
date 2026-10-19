@@ -134,6 +134,7 @@ module "github_oidc" {
   source = "../modules/github_oidc"
 
   github_repo                = var.github_repo
+  github_subject_prefix      = var.github_subject_prefix
   environments               = var.environments
   backup_environments        = var.backup_environments
   state_bucket_name          = aws_s3_bucket.state.bucket

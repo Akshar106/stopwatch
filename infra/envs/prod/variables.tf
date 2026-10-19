@@ -151,6 +151,12 @@ variable "use_permissions_boundary" {
 
 # --- Monitoring and cost guardrails ----------------------------------------------------------------
 
+variable "reserve_concurrency" {
+  description = "Give every function its reserved concurrency (the per-function caps in main.tf). false = unreserved (-1), bounded only by the account limit: for a new account whose limit is still 10, where AWS keeps 10 unreserved and no function can reserve any until the quota increase is approved."
+  type        = bool
+  default     = true
+}
+
 variable "create_alarms" {
   description = "The 10 CloudWatch alarms of docs/06 §9 (exactly the account's free tier)."
   type        = bool

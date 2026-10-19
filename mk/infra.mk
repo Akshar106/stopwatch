@@ -203,7 +203,9 @@ migrate-cloud: require-env ## Alembic upgrade head on ENV's Neon DB (owner URL f
 	if [ -n "$${GITHUB_ACTIONS:-}" ]; then echo "::add-mask::$$url"; fi; \
 	if [ -z "$$url" ] || [ "$$url" = unset ]; then echo "/stopwatch/$(ENV)/database_owner_url is not set (aws ssm put-parameter --overwrite ...)" >&2; exit 1; fi; \
 	echo "==> alembic upgrade head ($(ENV))"; \
-	cd "$(BACKEND)" && DATABASE_OWNER_URL="$$url" uv run alembic upgrade head
+	cd "$(BACKEND)"; \
+	export PGSSLROOTCERT="$${PGSSLROOTCERT:-$$(uv run python -c 'import certifi; print(certifi.where())')}"; \
+	DATABASE_OWNER_URL="$$url" uv run alembic upgrade head
 
 smoke: require-env tf-init ## Smoke-test ENV through CloudFront (EXPECT_VERSION=<sha>, REQUIRE_MANIFEST=1 for prod)
 	@set -uo pipefail; \

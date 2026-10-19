@@ -2,7 +2,7 @@
 # access keys exist anywhere (docs/05 §8).
 #
 # Per environment:
-#   stopwatch-deploy-<env>    trusted ONLY for repo:<owner>/<repo>:environment:<env>. In GitHub, the
+#   stopwatch-deploy-<env>    trusted ONLY for <subject prefix>:environment:<env>. In GitHub, the
 #                             prod environment requires a manual approval, so prod credentials can
 #                             only be minted after a human approves the job.
 #   stopwatch-boundary-<env>  permissions boundary. The deploy role can create IAM roles only if they
@@ -28,6 +28,8 @@ data "aws_partition" "current" {}
 data "aws_region" "current" {}
 
 locals {
+  subject_prefix = coalesce(var.github_subject_prefix, "repo:${var.github_repo}")
+
   account_id = data.aws_caller_identity.current.account_id
   partition  = data.aws_partition.current.partition
   region     = data.aws_region.current.region
@@ -88,7 +90,7 @@ data "aws_iam_policy_document" "trust" {
     condition {
       test     = "StringEquals"
       variable = "${local.oidc_host}:sub"
-      values   = ["repo:${var.github_repo}:environment:${each.key}"]
+      values   = ["${local.subject_prefix}:environment:${each.key}"]
     }
   }
 }
