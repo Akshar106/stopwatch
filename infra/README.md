@@ -13,15 +13,15 @@ Resource counts from a mocked `terraform test` apply: prod 114, staging 99, boot
 
 ## One-time setup
 
-1. **Account hygiene.** Turn on MFA for root and use an admin IAM Identity Center user. Request a **Lambda concurrent-executions quota increase**: new accounts allow 10, and each environment reserves 17.
-2. **Bootstrap.** Run `make bootstrap GITHUB_REPO=<owner/repo> OWNER=<you>`, then `export TF_STATE_BUCKET=<output bucket>`.
+1. **Account hygiene.** Turn on MFA for root and use an admin IAM Identity Center user. Request a **Lambda concurrent-executions quota increase**: new accounts allow 10, AWS keeps 10 of them unreserved, and each environment reserves 17 across its functions (`reserve_concurrency = true`, the default). While the request is pending you can deploy with `reserve_concurrency = false`: functions run unreserved, bounded only by the account limit. Set it back to `true` and apply once the increase is approved.
+2. **Bootstrap.** Run `make bootstrap GITHUB_REPO=<owner/repo> OWNER=<you>`, then `export TF_STATE_BUCKET=<output bucket>`. Newer GitHub repositories issue immutable OIDC subjects: if `gh api repos/<owner>/<repo>/actions/oidc/customization/sub` shows `"use_immutable_subject": true`, put its `sub_claim_prefix` in `infra/bootstrap/terraform.tfvars` as `github_subject_prefix`, or CI fails with "Not authorized to perform sts:AssumeRoleWithWebIdentity".
 3. **Neon.** Create a free project. Create an owner role (migrations) and an app login role, and grant `stopwatch_app_role` to the app role after the first migration. Use a `staging` branch for staging.
 4. **First apply.** Copy `envs/<env>/terraform.tfvars.example` to `terraform.tfvars`. It is git-ignored because it holds your email. Then run `make up ENV=staging`.
 5. **Secrets.** Terraform creates SSM SecureString parameters under `/stopwatch/<env>/` with the value `unset`. Set the real values with the CLI so they never enter Terraform state:
    ```bash
    aws ssm put-parameter --overwrite --type SecureString --name /stopwatch/staging/database_url --value '<app role URL>'
    ```
-   Do the same for `database_owner_url`, `session_secret`, `google_client_id`, `google_client_secret`, and optionally `vapid_public_key`, `vapid_private_key` and `anthropic_api_key`. `origin_verify_secret` is the one value Terraform generates itself (docs/05 §2).
+   Do the same for `database_owner_url`, `session_secret`, `google_client_id`, `google_client_secret`, and optionally `vapid_public_key`, `vapid_private_key` and `groq_api_key`. `origin_verify_secret` is the one value Terraform generates itself (docs/05 §2).
 6. **Migrations.** Run `make migrate-cloud ENV=staging`.
 7. **Google OAuth.** Add `<public_base_url>/api/v1/auth/callback` as an authorized redirect URI.
 8. **Alerts.** Confirm the SNS subscription email. Budgets alert at $1 actual and $5 forecast.
@@ -35,8 +35,10 @@ Resource counts from a mocked `terraform test` apply: prod 114, staging 99, boot
 | Repo secrets | `ALERT_EMAIL` | SNS subscription |
 | Repo secrets | `NEON_API_KEY` (optional) | Migration rehearsal on a Neon branch |
 | Environment `staging` / `prod` | `AWS_DEPLOY_ROLE_ARN` | OIDC role (no long-lived keys); add required reviewers on `prod` |
+| Environment `staging` / `prod` | `TERRAFORM_TFVARS` (optional) | HCL lines CI writes to `ci.auto.tfvars`, e.g. `ingest_enabled = true`, so a push doesn't revert settings you set in a local `terraform.tfvars` |
 | Environment `prod` | `NEON_PROJECT_ID`, `NEON_PARENT_BRANCH`, `NEON_DATABASE`, `NEON_OWNER_ROLE` (optional) | Migration rehearsal |
 | Environment `prod-backup` | `AWS_BACKUP_ROLE_ARN`, `LAKE_BUCKET` | Nightly `pg_dump` upload |
+| Repo variables | `PROD_BACKUP_ENABLED` | `true` turns on the nightly prod backup job (leave unset until prod exists) |
 
 ## Day-to-day
 

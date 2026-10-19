@@ -8,6 +8,17 @@ variable "github_repo" {
   }
 }
 
+variable "github_subject_prefix" {
+  description = "OIDC sub prefix GitHub issues for this repository. null = repo:<github_repo>. Repositories with immutable subjects (GET /repos/<owner>/<repo>/actions/oidc/customization/sub -> use_immutable_subject) get repo:<owner>@<owner_id>/<repo>@<repo_id>."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.github_subject_prefix == null || can(regex("^repo:[^:]+$", var.github_subject_prefix))
+    error_message = "github_subject_prefix must look like repo:owner/name or repo:owner@id/name@id (no environment suffix)."
+  }
+}
+
 variable "environments" {
   description = "Deployment environments. Each gets role stopwatch-deploy-<env>, trusted only for GitHub environment <env>."
   type        = list(string)

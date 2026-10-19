@@ -64,8 +64,13 @@ variable "ephemeral_storage_mb" {
 }
 
 variable "reserved_concurrency" {
-  description = "Reserved concurrency: both a guarantee and a hard cap that bounds the worst-case bill and prevents overlapping ticks."
+  description = "Reserved concurrency: both a guarantee and a hard cap that bounds the worst-case bill and prevents overlapping ticks. -1 = unreserved."
   type        = number
+
+  validation {
+    condition     = var.reserved_concurrency == -1 || var.reserved_concurrency >= 0
+    error_message = "reserved_concurrency must be -1 (unreserved) or >= 0."
+  }
 }
 
 variable "environment_variables" {

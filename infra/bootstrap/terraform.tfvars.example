@@ -3,6 +3,9 @@ owner       = "your-name"
 github_repo = "your-github-user/stopwatch"
 
 # Optional:
+# If `gh api repos/<owner>/<repo>/actions/oidc/customization/sub` shows "use_immutable_subject": true,
+# copy its sub_claim_prefix here, or GitHub's tokens won't match the deploy roles' trust policies:
+# github_subject_prefix = "repo:owner@123456/stopwatch@987654321"
 # state_bucket_name    = "stopwatch-tfstate-custom-name"
 # create_oidc_provider = false   # if the account already has token.actions.githubusercontent.com
 # existing_oidc_provider_arn = "arn:aws:iam::<account>:oidc-provider/token.actions.githubusercontent.com"

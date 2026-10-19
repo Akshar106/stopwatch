@@ -18,6 +18,12 @@ resource "aws_budgets_budget" "this" {
   limit_unit   = "USD"
   time_unit    = "MONTHLY"
 
+  # Gross usage: with the default (credits included) a Free-plan or promo-credit account reads ~$0
+  # and these alerts could never fire while credits are being burned.
+  cost_types {
+    include_credit = false
+  }
+
   dynamic "cost_filter" {
     for_each = var.cost_filter_tag == null ? [] : [var.cost_filter_tag]
     content {

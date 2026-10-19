@@ -14,6 +14,12 @@ variable "github_repo" {
   type        = string
 }
 
+variable "github_subject_prefix" {
+  description = "OIDC sub prefix for the repository; null = repo:<github_repo>. Newer repositories use immutable subjects, repo:<owner>@<owner_id>/<repo>@<repo_id> (gh api repos/<owner>/<repo>/actions/oidc/customization/sub)."
+  type        = string
+  default     = null
+}
+
 variable "state_bucket_name" {
   description = "State bucket name. null = stopwatch-tfstate-<account id> (globally unique without hardcoding the account)."
   type        = string
