@@ -27,7 +27,7 @@ Initial feature set for `v1.0.0` (MBTA bus, subway and light rail). Items are li
 ### Planned after v1.0.0 (*should*)
 
 - Web Push delay and cancellation alerts for saved commutes.
-- "Ask Stopwatch" plain-English questions over published data with evals; Claude model `claude-opus-5-5` by default (`ASK_MODEL` to change) and a hard $1/month cost cap with a guided-form fallback.
+- "Ask Stopwatch" plain-English questions over published data with evals; Groq model `openai/gpt-oss-120b` by default (`ASK_MODEL` to change) and a hard $1/month cost cap with a guided-form fallback.
 - Weekly accuracy validation against MBTA LAMP subway files, matching on (vehicle, stop) with the nearest arrival within 15 minutes, published on the methodology page.
 - A second agency (SEPTA or NYC subway).
 

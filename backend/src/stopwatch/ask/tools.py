@@ -16,13 +16,12 @@ from stopwatch.platform.blobstore import BlobStore
 
 DAYS = {"wkd": "weekdays", "sat": "Saturdays", "sun": "Sundays", "any": "all days"}
 
-TOOL_DEFINITIONS: list[dict[str, Any]] = [
+_TOOLS: list[dict[str, Any]] = [
     {
         "name": "find_stop",
         "description": "Search transit stops by name. Returns up to 5 matches with their ids and the routes that "
         "serve them. Use this first whenever the user names a stop or street.",
-        "strict": True,
-        "input_schema": {
+        "parameters": {
             "type": "object",
             "properties": {"query": {"type": "string", "description": "Stop or street name, e.g. 'Harvard'"}},
             "required": ["query"],
@@ -33,8 +32,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "name": "route_summary",
         "description": "Route-level reliability over the published window: on-time %, typical (median) and "
         "worst-case (90th percentile) delay, data coverage, and the weekly trend.",
-        "strict": True,
-        "input_schema": {
+        "parameters": {
             "type": "object",
             "properties": {"route_id": {"type": "string", "description": "Route id, e.g. '1', 'Red', 'Green-B'"}},
             "required": ["route_id"],
@@ -46,8 +44,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "description": "Reliability of one route at one stop for a day type and an hour range (local time, 0-23, "
         "inclusive). Returns sample size, on-time %, typical and worst-case delay, cancellations "
         "and excess wait time when the route is frequent.",
-        "strict": True,
-        "input_schema": {
+        "parameters": {
             "type": "object",
             "properties": {
                 "stop_id": {"type": "string"},
@@ -61,6 +58,9 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
 ]
+
+# Chat-completions (OpenAI-compatible) tool format, as Groq expects.
+TOOL_DEFINITIONS: list[dict[str, Any]] = [{"type": "function", "function": tool} for tool in _TOOLS]
 
 
 def _fold(s: str) -> str:

@@ -13,7 +13,7 @@
 - **Live panel:** the next arrivals, fetched by the browser straight from the MBTA's public API.
 - **Saved commutes** (Google sign-in or a 24-hour demo account) with a personal summary for your days and time window.
 - *Optional:* **push alerts** when your bus is predicted late or canceled.
-- *Optional:* **Ask Stopwatch**, plain-English questions answered only from computed data, with a hard monthly spend cap.
+- *Optional:* **Ask Stopwatch**, plain-English questions answered only from computed data via Groq (`openai/gpt-oss-120b`; Groq's free plan works), with a hard monthly spend cap.
 - **Public data-health page:** feed freshness, collection gaps, and daily coverage.
 
 ## Measured so far
@@ -91,7 +91,7 @@ Everything is Terraform under [`infra/`](infra/). A GitHub Actions pipeline buil
 1. **AWS account:** MFA on root and an admin user. Run `make bootstrap GITHUB_REPO=<owner/repo> OWNER=<you>`, which creates the Terraform state bucket and the GitHub OIDC deploy roles. Ask AWS to raise the Lambda concurrency quota: new accounts allow 10, and each environment reserves 17.
 2. **Neon:** create a free project with an owner role and an app role, then run the migrations (`make migrate-cloud ENV=staging`).
 3. **Google OAuth client:** redirect URI `https://<your-cloudfront-domain>/api/v1/auth/callback`.
-4. **Infrastructure:** `make up ENV=staging`, then set the SSM parameters (`database_url`, `session_secret`, OAuth, and optionally VAPID and Anthropic keys) with `aws ssm put-parameter --overwrite`. Terraform creates them as `unset`, so these secrets never enter its state (the CloudFront origin secret is the one documented exception). CI needs repository variables and environments; [`infra/README.md`](infra/README.md) lists them.
+4. **Infrastructure:** `make up ENV=staging`, then set the SSM parameters (`database_url`, `session_secret`, OAuth, and optionally VAPID keys and a Groq API key) with `aws ssm put-parameter --overwrite`. Terraform creates them as `unset`, so these secrets never enter its state (the CloudFront origin secret is the one documented exception). CI needs repository variables and environments; [`infra/README.md`](infra/README.md) lists them.
 5. **Alerts:** confirm the SNS email subscription. Budgets alert at $1 actual and $5 forecast.
 
 `make down ENV=staging` removes everything again. Prod refuses to destroy data unless `ALLOW_DATA_DESTROY=1` is set. Details: [06 §4](docs/06-quality-operations.md#4-infrastructure-as-code-terraform).

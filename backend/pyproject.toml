@@ -26,12 +26,13 @@ jobs = ["duckdb>=1.1"]
 # Web Push delivery (notify job).
 alerts = ["pywebpush>=2.0"]
 # "Ask Stopwatch" LLM feature.
-ask = ["anthropic>=0.40"]
+ask = ["groq>=0.30"]
 
 [dependency-groups]
 dev = [
     "alembic>=1.14",
     "hypothesis>=6.115",
+    "httpx2>=0.1",  # Starlette TestClient transport (plain httpx is deprecated there)
     "import-linter>=2.1",
     "moto[s3,ssm,awslambda]>=5.0",
     "mypy>=1.13",
@@ -80,7 +81,7 @@ ignore = [
     "S101",     # assert is used in tests
     "PLR0911", "PLR0912", "PLR0915",
     "PLR0917",  # positional args are fine for small internal helpers
-    "PLC0415",  # lazy imports are deliberate: keep DuckDB/boto3/anthropic/pywebpush out of cold paths and the API zip
+    "PLC0415",  # lazy imports are deliberate: keep DuckDB/boto3/groq/pywebpush out of cold paths and the API zip
 ]
 
 [tool.ruff.lint.per-file-ignores]

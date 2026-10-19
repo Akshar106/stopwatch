@@ -20,7 +20,7 @@ SECRET_FIELDS: tuple[str, ...] = (
     "google_client_secret",
     "session_secret",
     "vapid_private_key",
-    "anthropic_api_key",
+    "groq_api_key",
     "origin_verify_secret",
 )
 
@@ -54,8 +54,8 @@ class Settings(BaseSettings):
     vapid_private_key: SecretStr | None = None
     vapid_subject: str = "mailto:operator@example.com"
 
-    anthropic_api_key: SecretStr | None = None
-    ask_model: str = "claude-opus-5-5"  # set ASK_MODEL=claude-haiku-5-5 to stretch the monthly cap
+    groq_api_key: SecretStr | None = None
+    ask_model: str = "openai/gpt-oss-120b"  # any Groq model with tool calling, e.g. openai/gpt-oss-20b
     ask_monthly_cap_usd: float = 1.0
 
     # Shared secret CloudFront adds as X-Origin-Verify on /api/* requests; the API rejects requests without it

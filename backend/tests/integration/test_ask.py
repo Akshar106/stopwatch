@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from dataclasses import dataclass, field
 from datetime import date
@@ -41,39 +42,62 @@ def site(tmp_path_factory: pytest.TempPathFactory):  # type: ignore[no-untyped-d
     return site
 
 
-# ---- fake Anthropic client -------------------------------------------------------------------------------
+# ---- fake Groq (OpenAI-compatible chat completions) client ---------------------------------------------------
 
 
 @dataclass
-class Block:
-    type: str
-    text: str = ""
-    name: str = ""
-    input: dict[str, Any] = field(default_factory=dict)
-    id: str = ""
+class Fn:
+    name: str
+    arguments: str
+
+
+@dataclass
+class Call:
+    id: str
+    function: Fn
+    type: str = "function"
+
+
+@dataclass
+class Msg:
+    content: str | None = None
+    tool_calls: list[Call] | None = None
+
+
+@dataclass
+class Choice:
+    message: Msg
+    finish_reason: str = "stop"
 
 
 @dataclass
 class U:
-    input_tokens: int = 1000
-    output_tokens: int = 200
-    cache_read_input_tokens: int = 0
+    prompt_tokens: int = 1000
+    completion_tokens: int = 200
 
 
 @dataclass
 class Resp:
-    stop_reason: str
-    content: list[Block]
-    model: str = "claude-opus-5-5"
+    choices: list[Choice]
+    model: str = "openai/gpt-oss-120b"
     usage: U = field(default_factory=U)
+
+
+def tool_call(name: str, args: dict[str, Any] | str, call_id: str = "call_1") -> Resp:
+    raw = args if isinstance(args, str) else json.dumps(args)
+    return Resp([Choice(Msg(tool_calls=[Call(call_id, Fn(name, raw))]), "tool_calls")])
+
+
+def answer(text: str, finish_reason: str = "stop") -> Resp:
+    return Resp([Choice(Msg(content=text), finish_reason)])
 
 
 class FakeClient:
     def __init__(self, script: list[Resp | Exception]) -> None:
         self.script = list(script)
         self.calls: list[dict[str, Any]] = []
-        self.beta = self
-        self.messages = self
+        self.chat = self
+        self.completions = self
 
     def create(self, **kwargs: Any) -> Resp:
         self.calls.append(kwargs)
@@ -112,74 +136,80 @@ def test_tool_loop_returns_grounded_answer(site) -> None:  # type: ignore[no-unt
     n = out["directions"][0]["observations"]
     client = FakeClient(
         [
-            Resp(
-                "tool_use",
-                [
-                    Block(
-                        "tool_use",
-                        name="stop_reliability",
-                        id="tu1",
-                        input={"stop_id": stop_id, "route_id": "1", "day": "sun", "hour_from": 0, "hour_to": 23},
-                    )
-                ],
+            tool_call(
+                "stop_reliability",
+                {"stop_id": stop_id, "route_id": "1", "day": "sun", "hour_from": 0, "hour_to": 23},
             ),
-            Resp("end_turn", [Block("text", text=f"Route 1 was observed {n} times at that stop on Sundays.")]),
+            answer(f"Route 1 was observed {n} times at that stop on Sundays."),
         ]
     )
     resp, usage = service.ask_with_client(
-        client, "claude-opus-5-5", "How reliable is the 1 on Sundays?", PublishedData(site), 10**9
+        client, "openai/gpt-oss-120b", "How reliable is the 1 on Sundays?", PublishedData(site), 10**9
     )
     assert resp.fallback is False and str(n) in (resp.answer or "")
     assert any(f.label.endswith("Observations") for f in resp.facts)
     assert resp.links and resp.links[0].href.startswith("/s/mbta/")
     assert usage.input_tokens == 2000 and usage.output_tokens == 400
     first = client.calls[0]
-    assert first["tool_choice"] == {"type": "auto"}
-    assert first["fallbacks"] == "default" and first["betas"] == ["server-side-fallback-2026-07-01"]
-    assert all(tool["strict"] for tool in first["tools"])
-    # The second request carries the full assistant turn and the tool result (append-only history).
-    assert [m["role"] for m in client.calls[1]["messages"]] == ["user", "assistant", "user"]
+    assert first["tool_choice"] == "auto" and first["reasoning_effort"] == "low"
+    assert {t["function"]["name"] for t in first["tools"]} == {"find_stop", "route_summary", "stop_reliability"}
+    assert all(t["type"] == "function" for t in first["tools"])
+    # Second request: system + user + the assistant's tool call + the tool result, in order.
+    second = client.calls[1]["messages"]
+    assert [m["role"] for m in second] == ["system", "user", "assistant", "tool"]
+    assert second[2]["tool_calls"][0]["id"] == second[3]["tool_call_id"] == "call_1"
 
 
 def test_hallucinated_numbers_fall_back_to_facts(site) -> None:  # type: ignore[no-untyped-def]
     client = FakeClient(
-        [
-            Resp("tool_use", [Block("tool_use", name="route_summary", id="t", input={"route_id": "1"})]),
-            Resp("end_turn", [Block("text", text="Route 1 is on time 97.3% of the time.")]),
-        ]
+        [tool_call("route_summary", {"route_id": "1"}), answer("Route 1 is on time 97.3% of the time.")]
     )
-    resp, _ = service.ask_with_client(client, "claude-opus-5-5", "Is the 1 reliable?", PublishedData(site), 10**9)
+    resp, _ = service.ask_with_client(client, "openai/gpt-oss-120b", "Is the 1 reliable?", PublishedData(site), 10**9)
     assert resp.fallback and resp.reason == "ungrounded" and resp.answer is None
 
 
-def test_refusal_and_api_errors_degrade_gracefully(site) -> None:  # type: ignore[no-untyped-def]
-    import anthropic
+def test_malformed_tool_arguments_become_tool_errors(site) -> None:  # type: ignore[no-untyped-def]
+    client = FakeClient([tool_call("route_summary", "{not json"), answer("I can only answer reliability questions.")])
+    resp, _ = service.ask_with_client(client, "openai/gpt-oss-120b", "q", PublishedData(site), 10**9)
+    tool_msg = client.calls[1]["messages"][-1]
+    assert tool_msg["role"] == "tool" and "error" in tool_msg["content"]
+    assert resp.fallback is False
+
+
+def test_truncated_answer_and_api_errors_degrade_gracefully(site) -> None:  # type: ignore[no-untyped-def]
+    import groq
 
     resp, _ = service.ask_with_client(
-        FakeClient([Resp("refusal", [])]), "claude-opus-5-5", "q", PublishedData(site), 10**9
+        FakeClient([answer("Route 1 is", finish_reason="length")]),
+        "openai/gpt-oss-120b",
+        "q",
+        PublishedData(site),
+        10**9,
     )
-    assert resp.fallback and resp.reason == "refused"
-    err = anthropic.APIConnectionError(request=httpx.Request("POST", "https://api.anthropic.com/v1/messages"))
-    resp, _ = service.ask_with_client(FakeClient([err]), "claude-opus-5-5", "q", PublishedData(site), 10**9)
+    assert resp.fallback and resp.reason == "ungrounded"
+    err = groq.APIConnectionError(request=httpx.Request("POST", "https://api.groq.com/openai/v1/chat/completions"))
+    resp, _ = service.ask_with_client(FakeClient([err]), "openai/gpt-oss-120b", "q", PublishedData(site), 10**9)
     assert resp.fallback and resp.reason == "error"
 
 
 def test_spend_cap_stops_the_loop(site) -> None:  # type: ignore[no-untyped-def]
-    client = FakeClient([Resp("tool_use", [Block("tool_use", name="route_summary", id="t", input={"route_id": "1"})])])
-    resp, usage = service.ask_with_client(client, "claude-opus-5-5", "q", PublishedData(site), spend_left_microusd=10)
+    client = FakeClient([tool_call("route_summary", {"route_id": "1"})])
+    resp, usage = service.ask_with_client(
+        client, "openai/gpt-oss-120b", "q", PublishedData(site), spend_left_microusd=10
+    )
     assert resp.reason == "cap_reached" and len(client.calls) == 1 and usage.cost_microusd() > 10
 
 
-def test_haiku_gets_no_fallback_parameters(site) -> None:  # type: ignore[no-untyped-def]
-    client = FakeClient([Resp("end_turn", [Block("text", text="I can only answer reliability questions.")])])
-    service.ask_with_client(client, "claude-haiku-5-5", "hello", PublishedData(site), 10**9)
-    assert "fallbacks" not in client.calls[0]
+def test_non_gpt_oss_models_get_no_reasoning_effort(site) -> None:  # type: ignore[no-untyped-def]
+    client = FakeClient([answer("I can only answer reliability questions.")])
+    service.ask_with_client(client, "llama-3.3-70b-versatile", "hello", PublishedData(site), 10**9)
+    assert "reasoning_effort" not in client.calls[0]
 
 
 def test_cost_accounting_uses_model_prices() -> None:
-    u = service.Usage(model="claude-opus-5-5", input_tokens=1_000_000, output_tokens=100_000)
-    assert u.cost_microusd() == 6_000_001  # $4 + $2, rounded up
-    assert service.Usage(model="mystery", input_tokens=1_000_000).cost_microusd() == 10_000_001
+    u = service.Usage(model="openai/gpt-oss-120b", input_tokens=1_000_000, output_tokens=1_000_000)
+    assert u.cost_microusd() == 750_001  # $0.15 + $0.60, rounded up
+    assert service.Usage(model="mystery", input_tokens=1_000_000).cost_microusd() == 1_000_001
 
 
 def test_grounding_rules() -> None:
@@ -210,7 +240,7 @@ def _settings(tmp_path: Path, **kw: Any) -> Settings:
     base = {
         "STOPWATCH_ENV": "test",
         "ASK_ENABLED": True,
-        "ANTHROPIC_API_KEY": "sk-test",
+        "GROQ_API_KEY": "gsk-test",
         "SITE_URL": f"file://{tmp_path}",
     }
     base.update(kw)
@@ -219,11 +249,11 @@ def _settings(tmp_path: Path, **kw: Any) -> Settings:
 
 @pytest.mark.integration
 def test_quota_cap_and_disabled(app_engine: Engine, user_id: uuid.UUID, site, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
-    ok = FakeClient([Resp("end_turn", [Block("text", text="I can only answer reliability questions.")])] * 30)
+    ok = FakeClient([answer("I can only answer reliability questions.")] * 30)
     with app_engine.begin() as conn:
         with pytest.raises(AskDisabledError):
             service.answer_question(conn, user_id, "q", settings=_settings(tmp_path, ASK_ENABLED=False))
-        no_key = _settings(tmp_path, ANTHROPIC_API_KEY=None)
+        no_key = _settings(tmp_path, GROQ_API_KEY=None)
         assert service.answer_question(conn, user_id, "q", settings=no_key).reason == "disabled"
         s = _settings(tmp_path)
         r = service.answer_question(conn, user_id, "hello", settings=s, client_factory=lambda k: ok, site=site)

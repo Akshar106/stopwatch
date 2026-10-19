@@ -299,7 +299,7 @@ interface AskResponse {
 
 `POST /commutes` validates that the route serves that stop in that direction; otherwise `422`.
 
-**Ask Stopwatch** *(should)* answers only from published data, through a fixed set of read-only tools ([05 §6](05-security-reliability.md#6-the-ask-feature-should-llm-specific-controls)). It calls Anthropic's Claude API; the model defaults to `claude-opus-5-5` and is configurable with `ASK_MODEL`. Spending is capped at **$1 per month** across all users (tracked in `ask_usage`); at the cap, or when the answer cannot be grounded in tool results, the response has `answer: null`, `fallback: true` and a `reason`, and the app shows a guided form instead.
+**Ask Stopwatch** *(should)* answers only from published data, through a fixed set of read-only tools ([05 §6](05-security-reliability.md#6-the-ask-feature-should-llm-specific-controls)). It calls Groq's OpenAI-compatible chat completions API with tool calling; the model defaults to `openai/gpt-oss-120b` and is configurable with `ASK_MODEL`. Spending is capped at **$1 per month** across all users (tracked in `ask_usage`); at the cap, or when the answer cannot be grounded in tool results, the response has `answer: null`, `fallback: true` and a `reason`, and the app shows a guided form instead.
 
 ### Example: save a commute
 
