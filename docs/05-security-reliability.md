@@ -260,7 +260,7 @@ There is **no Redis**, because reads are already served from the CDN and the dyn
 | Goal | Target | How it is measured |
 |---|---|---|
 | Public page TTFB (cached) | p95 < 200 ms | k6 against CloudFront; CloudWatch CloudFront metrics |
-| Mobile LCP (route page, mid-tier phone, 4G) | < 2.5 s | Lighthouse CI on every PR (budget file) |
+| Mobile LCP (route page, mid-tier phone, 4G) | < 2.5 s (CI gate: 2.5 s for `/` and `/health`, 3.0 s for stop and route pages) | Lighthouse CI on every PR and nightly against staging (`frontend/lighthouserc.json`). Stop and route pages measure ~2.6–2.7 s: their largest element waits for the data JSON, and the remaining cost is the React runtime, so 2.5 s there needs prerendering |
 | Initial JS bundle | < 200 KB gzip | Vite build-size check in CI |
 | Stop search | < 100 ms per keystroke for 8k stops | Vitest benchmark |
 | API p95 (warm) | < 300 ms | API Gateway percentiles; k6 at 20 rps |
