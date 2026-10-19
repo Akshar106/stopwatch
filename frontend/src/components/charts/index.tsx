@@ -1,4 +1,5 @@
 import { lazy, Suspense, type ReactNode } from "react";
+import { useNearViewport } from "../../lib/hooks";
 import { Skeleton } from "../States";
 import styles from "./Charts.module.css";
 
@@ -23,14 +24,15 @@ export function ChartFigure({
   height?: string;
   children: ReactNode;
 }) {
+  // Plot is the biggest chunk; fetch it only when a chart is about to scroll into view.
+  const [ref, near] = useNearViewport<HTMLDivElement>();
+  const skeleton = <Skeleton height={height} label={`Loading chart: ${title}`} />;
   return (
     <figure className={styles.figure}>
       <figcaption className={styles.caption}>{title}</figcaption>
       {description && <div className={styles.description}>{description}</div>}
-      <div className={styles.chart} style={{ minHeight: height }}>
-        <Suspense fallback={<Skeleton height={height} label={`Loading chart: ${title}`} />}>
-          {children}
-        </Suspense>
+      <div ref={ref} className={styles.chart} style={{ minHeight: height }}>
+        {near ? <Suspense fallback={skeleton}>{children}</Suspense> : skeleton}
       </div>
       {table && (
         <details className="disclosure">

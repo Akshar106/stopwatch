@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { ChartFigure, CoverageChart } from "../../components/charts";
-import { ErrorState, Loading, Skeleton } from "../../components/States";
+import { ErrorState, Skeleton } from "../../components/States";
 import {
   formatCount,
   formatDate,
@@ -44,7 +44,8 @@ export default function HealthPage() {
         collection is working, how much of the schedule we actually observed, and where the gaps are
         — so you can judge how far to trust the numbers.
       </p>
-      {manifest.isPending && <Loading label="Loading data health…" />}
+      {/* Placeholders are sized like what replaces them, so the footer stays put (no CLS). */}
+      {manifest.isPending && <Skeleton height="54rem" label="Loading data health…" />}
       {manifest.error && (
         <ErrorState
           title="Couldn't load data health"
@@ -84,7 +85,10 @@ function AgencyHealth({ agency }: { agency: AgencyManifest }) {
       </div>
 
       {health.isPending && (
-        <Skeleton height="8rem" label={`Loading ${agency.name} collection status`} />
+        <Skeleton
+          className={styles.statusSkeleton}
+          label={`Loading ${agency.name} collection status`}
+        />
       )}
       {health.error && (
         <ErrorState
@@ -162,7 +166,7 @@ function AgencyHealth({ agency }: { agency: AgencyManifest }) {
         ))}
 
       <h3 className={styles.subheading}>Coverage, last 30 days</h3>
-      {coverage.isPending && <Skeleton height="12rem" label="Loading coverage" />}
+      {coverage.isPending && <Skeleton height="24rem" label="Loading coverage" />}
       {coverage.error && (
         <ErrorState
           title="Coverage unavailable"
