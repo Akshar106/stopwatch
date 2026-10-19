@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = "==3.13.*"
 
 [[package]]
@@ -1496,7 +1496,7 @@ dev = [
     { name = "alembic", specifier = ">=1.14" },
     { name = "hypothesis", specifier = ">=6.115" },
     { name = "import-linter", specifier = ">=2.1" },
-    { name = "moto", extras = ["s3", "ssm", "awslambda"], specifier = ">=5.0" },
+    { name = "moto", extras = ["s3", "ssm", "awslambda"], specifier = ">=5.2.4" },
     { name = "mypy", specifier = ">=1.13" },
     { name = "pytest", specifier = ">=8.3" },
     { name = "pytest-cov", specifier = ">=6.0" },
