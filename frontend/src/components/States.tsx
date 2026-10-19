@@ -47,11 +47,38 @@ export function EmptyState({ title, children }: { title: string; children?: Reac
   );
 }
 
-/** Skeleton block for layout-stable loading (avoids CLS on data pages). */
-export function Skeleton({ height = "8rem", label }: { height?: string; label: string }) {
+/**
+ * Skeleton block for layout-stable loading (avoids CLS on data pages). Size it with `height`, or
+ * with a `className` when the loaded content's height changes with the viewport.
+ */
+export function Skeleton({
+  height,
+  className,
+  label,
+}: {
+  height?: string;
+  className?: string;
+  label: string;
+}) {
+  const size = height ?? (className ? undefined : "8rem");
   return (
-    <div className={styles.skeleton} style={{ height }} role="status" aria-live="polite">
+    <div
+      className={className ? `${styles.skeleton} ${className}` : styles.skeleton}
+      style={size ? { height: size } : undefined}
+      role="status"
+      aria-live="polite"
+    >
       <span className="visually-hidden">{label}</span>
     </div>
   );
+}
+
+/**
+ * Skeleton for the rest of a page whose loaded content is always taller than the screen (stop,
+ * route). Filling the viewport keeps the footer below the fold until the content arrives; a short
+ * placeholder leaves the footer on screen and then shoves it off (a layout shift Lighthouse
+ * counts), and makes the footer the page's largest paint.
+ */
+export function PageSkeleton({ label }: { label: string }) {
+  return <Skeleton className={styles.page} label={label} />;
 }

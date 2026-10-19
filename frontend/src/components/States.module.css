@@ -42,6 +42,10 @@
   animation: shimmer 1.4s ease-in-out infinite;
 }
 
+.page {
+  height: 100vh;
+}
+
 @keyframes shimmer {
   from {
     background-position: 200% 0;
