@@ -48,7 +48,7 @@ Stopwatch does not sell or share your data. A few services are involved in runni
 | **Google** | That you are signing in to Stopwatch | Only if you choose "Sign in with Google"; Google's privacy policy applies |
 | **MBTA** (`api-v3.mbta.com`) | Your IP address and the stop you are viewing | The "right now" live predictions panel is loaded by **your browser directly from the MBTA**, so our servers are not involved. The MBTA's privacy policy applies |
 | **Your browser's push service** (for example Google, Mozilla or Apple) | The alert message and when it was sent | Only if you turn on alerts |
-| **Anthropic** (Claude API) *(Ask Stopwatch, if enabled)* | The text of your question, without your name, email or account ID | To generate an answer from Stopwatch's published data |
+| **Groq** (GroqCloud API) *(Ask Stopwatch, if enabled)* | The text of your question, without your name, email or account ID | To generate an answer from Stopwatch's published data |
 
 ## Logs
 

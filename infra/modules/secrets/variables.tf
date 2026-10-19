@@ -19,6 +19,6 @@ variable "parameters" {
     session_secret       = "Session/CSRF signing key (rotate = invalidate all sessions)"
     vapid_public_key     = "Web Push VAPID public key"
     vapid_private_key    = "Web Push VAPID private key"
-    anthropic_api_key    = "LLM API key for Ask Stopwatch"
+    groq_api_key         = "Groq API key for Ask Stopwatch"
   }
 }

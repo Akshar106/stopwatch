@@ -155,7 +155,7 @@ Principles:
   - Signed-in, non-demo users only, 20 questions a day each.
   - Responses cached by normalized question + `build_id`.
   - A global monthly cap of **$1** tracked in `ask_usage`. At the cap, the feature switches to a guided form with no LLM.
-  - Model is configurable (`ASK_MODEL`, default `claude-opus-5-5`); switching to a cheaper tier such as `claude-haiku-5-5` stretches the same $1 cap, and the eval harness (`evals/ask/run_evals.py`) checks quality before any switch.
+  - Provider is Groq (OpenAI-compatible tool calling); model is configurable (`ASK_MODEL`, default `openai/gpt-oss-120b` at $0.15/$0.60 per million tokens, or `openai/gpt-oss-20b` at half that). Groq's free plan costs $0 within its per-day limits; the cap counts list price regardless, and the eval harness (`evals/ask/run_evals.py`) checks quality before any model switch.
 
 ## 7. Rate limiting and abuse
 

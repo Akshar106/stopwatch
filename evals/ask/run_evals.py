@@ -7,7 +7,7 @@ questions get no tool calls and no numbers. Every live run costs money, so it st
     uv run python ../evals/ask/run_evals.py --dry                 # validate the question file only
     uv run python ../evals/ask/run_evals.py --max-cost 0.50       # live run against SITE_URL's published data
 
-Requires an Anthropic credential (ANTHROPIC_API_KEY or an `ant auth login` profile) and a published build.
+Requires GROQ_API_KEY (free plan works; mind its per-day token limits) and a published build.
 """
 
 from __future__ import annotations
@@ -33,21 +33,23 @@ def load() -> list[dict[str, Any]]:
 
 
 class RecordingClient:
-    """Wraps the real client to capture the first tool call of each question."""
+    """Wraps the real Groq client to capture the first tool call of each question."""
 
     def __init__(self, inner: Any) -> None:
         self.inner = inner
         self.first_tool: dict[str, Any] | None = None
-        self.beta = self
-        self.messages = self
+        self.chat = self
+        self.completions = self
 
     def create(self, **kwargs: Any) -> Any:
-        resp = self.inner.beta.messages.create(**kwargs)
-        if self.first_tool is None:
-            for b in resp.content:
-                if b.type == "tool_use":
-                    self.first_tool = {"name": b.name, "input": dict(b.input)}
-                    break
+        resp = self.inner.chat.completions.create(**kwargs)
+        calls = resp.choices[0].message.tool_calls or []
+        if self.first_tool is None and calls:
+            try:
+                args = json.loads(calls[0].function.arguments or "{}")
+            except json.JSONDecodeError:
+                args = {}
+            self.first_tool = {"name": calls[0].function.name, "input": args}
         return resp
 
 
@@ -62,7 +64,7 @@ def main() -> int:
         print(f"{len(rows)} questions OK")
         return 0
 
-    import anthropic
+    import groq
 
     from stopwatch.ask.service import ask_with_client
     from stopwatch.ask.tools import PublishedData
@@ -72,7 +74,7 @@ def main() -> int:
     s = get_settings()
     model = args.model or s.ask_model
     data = PublishedData(open_blobstore(s.site_url), agency_id=s.agency_ids[0])
-    client = anthropic.Anthropic()
+    client = groq.Groq()  # reads GROQ_API_KEY
     budget = int(args.max_cost * 1_000_000)
     spent = 0
     results = []

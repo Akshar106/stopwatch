@@ -50,8 +50,12 @@ def test_a_full_sign_in_and_commute_flow_leaks_nothing(
     anon.csrf = me["csrf_token"]
     anon.post("/api/v1/commutes", json=catalog.commute_body(label="Secret clinic visit"))
 
-    # Everything the server process logged (the test client's own request log, "httpx2", is not ours).
-    server_logs = "\n".join(r.getMessage() for r in caplog.records if r.name.split(".")[0] != "httpx2")
+    # Everything the server process logged. The test client's own request lines ("HTTP Request: GET
+    # http://testserver/...") are not ours; the server's outbound httpx calls (e.g. to Google) still count.
+    def from_test_client(r: logging.LogRecord) -> bool:
+        return r.name.split(".")[0] in ("httpx", "httpx2") and "http://testserver" in r.getMessage()
+
+    server_logs = "\n".join(r.getMessage() for r in caplog.records if not from_test_client(r))
     secrets = [
         "private.person@example.com",
         "Secret clinic visit",

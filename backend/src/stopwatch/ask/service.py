@@ -1,15 +1,17 @@
 """Ask Stopwatch: plain-English questions answered from published reliability data via tool use.
 
-Design (docs/05 §6):
-  * read-only tools over published JSON (tools.py), schema-validated (`strict: true`);
+Model provider: Groq (OpenAI-compatible chat completions with tool calling), default model
+`openai/gpt-oss-120b`. Design (docs/05 §6):
+  * read-only tools over published JSON (tools.py); arguments are parsed and validated before any tool runs;
   * a manual tool loop so the iteration count and the monthly spend cap are checked between every turn;
   * a grounding check (grounding.py) — answers citing numbers we never computed fall back to the facts;
   * per-user daily quota and a global monthly dollar cap tracked in `ask_usage`;
-  * any API error or refusal degrades to the guided-form fallback, never a 500.
+  * any API error (including Groq free-tier rate limits) degrades to the guided-form fallback, never a 500.
 """
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
@@ -32,21 +34,17 @@ log = get_logger("ask")
 
 DAILY_QUESTIONS_PER_USER = 20
 MAX_TURNS = 4
-MAX_TOKENS = 4000  # thinking + a short answer; questions are small
+MAX_TOKENS = 2000  # reasoning + a short answer; questions are small
 QUESTION_MAX_CHARS = 300
 
-# USD per million tokens (input, output, cache read). From Anthropic's published prices (cached 2026-10-06).
+# USD per million tokens (input, output, cached input), from Groq's model page (console.groq.com/docs/models,
+# checked 2026-10-19). On Groq's free plan the real bill is $0; the cap still counts list price, so moving to a
+# paid plan can never overspend.
 PRICES: dict[str, tuple[float, float, float]] = {
-    "claude-opus-5-5": (4.00, 20.00, 0.20),
-    "claude-opus-5": (5.00, 25.00, 0.50),
-    "claude-opus-4-8": (5.00, 25.00, 0.50),
-    "claude-sonnet-5-5": (2.00, 10.00, 0.20),
-    "claude-haiku-5-5": (0.10, 0.50, 0.01),
-    "claude-fable-5-1": (10.00, 50.00, 0.25),
+    "openai/gpt-oss-120b": (0.15, 0.60, 0.15),
+    "openai/gpt-oss-20b": (0.075, 0.30, 0.075),
 }
-UNKNOWN_MODEL_PRICE = (10.00, 50.00, 1.00)  # conservative: never under-count spend
-# Models that accept server-side refusal fallbacks (`fallbacks: "default"`).
-FALLBACK_MODELS = {"claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5", "claude-fable-5-1"}
+UNKNOWN_MODEL_PRICE = (1.00, 1.00, 1.00)  # conservative for models priced "contact sales" (e.g. Llama 3.3 70B)
 
 SYSTEM_PROMPT = """You answer riders' questions about how reliable public transit routes and stops have been,
 using only the tools provided. They return statistics computed from real-time feed observations.
@@ -130,43 +128,56 @@ def _facts_from(results: list[dict[str, Any]]) -> tuple[list[AskFact], list[AskL
     return facts[:20], links[:5]
 
 
-Client = Any  # anthropic.Anthropic (kept untyped so tests can pass a fake)
+Client = Any  # groq.Groq (kept untyped so tests can pass a fake)
+
+
+def _create(client: Client, model: str, messages: list[dict[str, Any]]) -> Any:
+    extra: dict[str, Any] = {}
+    if model.startswith("openai/gpt-oss"):
+        extra["reasoning_effort"] = "low"  # tool selection here is simple; low effort keeps tokens (and cost) small
+    return client.chat.completions.create(
+        model=model,
+        messages=messages,
+        tools=TOOL_DEFINITIONS,
+        tool_choice="auto",
+        max_completion_tokens=MAX_TOKENS,
+        temperature=0.2,
+        **extra,
+    )
+
+
+def _parse_arguments(raw: str | None) -> dict[str, Any]:
+    """Tool arguments arrive as a JSON string; anything but a JSON object is an error the model sees."""
+    value = json.loads(raw or "{}")
+    if not isinstance(value, dict):
+        raise ValueError("tool arguments must be a JSON object")
+    return value
 
 
 def ask_with_client(
     client: Client, model: str, question: str, data: PublishedData, spend_left_microusd: int
 ) -> tuple[AskResponse, Usage]:
     """Run the tool loop. Pure with respect to the database (callers handle quotas and accounting)."""
-    import anthropic
+    import groq
 
     usage = Usage(model=model)
-    messages: list[dict[str, Any]] = [{"role": "user", "content": question}]
+    messages: list[dict[str, Any]] = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": question},
+    ]
     results: list[dict[str, Any]] = []
-    extra: dict[str, Any] = {}
-    if model in FALLBACK_MODELS:
-        extra = {"betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"}
     try:
         for _turn in range(MAX_TURNS):
-            response = client.beta.messages.create(
-                model=model,
-                max_tokens=MAX_TOKENS,
-                system=SYSTEM_PROMPT,
-                tools=TOOL_DEFINITIONS,
-                tool_choice={"type": "auto"},
-                output_config={"effort": "low"},
-                messages=messages,
-                **extra,
-            )
+            response = _create(client, model, messages)
             usage.model = getattr(response, "model", model) or model
             u = response.usage
-            usage.input_tokens += int(getattr(u, "input_tokens", 0) or 0)
-            usage.output_tokens += int(getattr(u, "output_tokens", 0) or 0)
-            usage.cache_read_tokens += int(getattr(u, "cache_read_input_tokens", 0) or 0)
-            if response.stop_reason == "refusal":
-                facts, links = _facts_from(results)
-                return AskResponse(answer=None, fallback=True, reason="refused", facts=facts, links=links), usage
-            if response.stop_reason != "tool_use":
-                text = " ".join(b.text for b in response.content if b.type == "text").strip()
+            usage.input_tokens += int(getattr(u, "prompt_tokens", 0) or 0)
+            usage.output_tokens += int(getattr(u, "completion_tokens", 0) or 0)
+            choice = response.choices[0]
+            message = choice.message
+            calls = list(getattr(message, "tool_calls", None) or [])
+            if not calls:
+                text = (message.content or "").strip() if choice.finish_reason != "length" else ""
                 facts, links = _facts_from(results)
                 bad = ungrounded_numbers(text, results, question)
                 if not text or bad:
@@ -177,25 +188,32 @@ def ask_with_client(
             if usage.cost_microusd() >= spend_left_microusd:
                 facts, links = _facts_from(results)
                 return AskResponse(answer=None, fallback=True, reason="cap_reached", facts=facts, links=links), usage
-            # Append the full assistant content (append-only history keeps thinking blocks valid).
-            messages.append({"role": "assistant", "content": response.content})
-            tool_results = []
-            for block in response.content:
-                if block.type != "tool_use":
-                    continue
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": message.content or "",
+                    "tool_calls": [
+                        {
+                            "id": c.id,
+                            "type": "function",
+                            "function": {"name": c.function.name, "arguments": c.function.arguments},
+                        }
+                        for c in calls
+                    ],
+                }
+            )
+            for call in calls:
                 try:
-                    out = run_tool(data, block.name, dict(block.input))
-                    is_error = "error" in out
+                    out = run_tool(data, call.function.name, _parse_arguments(call.function.arguments))
                 except (LookupError, KeyError, ValueError, TypeError) as exc:
-                    out, is_error = {"error": f"{type(exc).__name__}: {exc}"}, True
+                    out = {"error": f"{type(exc).__name__}: {exc}"}
                 results.append(out)
-                tool_results.append(
-                    {"type": "tool_result", "tool_use_id": block.id, "content": compact(out), "is_error": is_error}
+                messages.append(
+                    {"role": "tool", "tool_call_id": call.id, "name": call.function.name, "content": compact(out)}
                 )
-            messages.append({"role": "user", "content": tool_results})
         facts, links = _facts_from(results)
         return AskResponse(answer=None, fallback=True, reason="ungrounded", facts=facts, links=links), usage
-    except (anthropic.APIStatusError, anthropic.APIConnectionError) as exc:
+    except (groq.APIStatusError, groq.APIConnectionError) as exc:
         log.warning("ask model call failed", error_type=type(exc).__name__)
         facts, links = _facts_from(results)
         return AskResponse(answer=None, fallback=True, reason="error", facts=facts, links=links), usage
@@ -222,7 +240,7 @@ def answer_question(
     today = datetime.now(UTC).date()
     if _today_requests(conn, user_id, today) >= DAILY_QUESTIONS_PER_USER:
         raise AskQuotaExceededError(f"daily limit of {DAILY_QUESTIONS_PER_USER} questions reached")
-    if s.anthropic_api_key is None:
+    if s.groq_api_key is None:
         return AskResponse(answer=None, fallback=True, reason="disabled")
     cap = int(s.ask_monthly_cap_usd * 1_000_000)
     left = cap - _month_spend_microusd(conn, today)
@@ -231,14 +249,14 @@ def answer_question(
         return AskResponse(answer=None, fallback=True, reason="cap_reached")
 
     if client_factory is None:
-        import anthropic
+        import groq
 
         def client_factory(key: str) -> Client:
-            return anthropic.Anthropic(api_key=key, max_retries=1, timeout=20.0)
+            return groq.Groq(api_key=key, max_retries=1, timeout=20.0)
 
     data = PublishedData(site or open_blobstore(s.site_url), agency_id=s.agency_ids[0])
     response, usage = ask_with_client(
-        client_factory(s.anthropic_api_key.get_secret_value()), s.ask_model, question, data, left
+        client_factory(s.groq_api_key.get_secret_value()), s.ask_model, question, data, left
     )
     cost = usage.cost_microusd() if usage.input_tokens or usage.output_tokens else 0
     _record_usage(conn, user_id, today, cost)
