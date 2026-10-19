@@ -4,6 +4,8 @@
 #
 # GitHub configuration per environment (Settings -> Environments -> <env>):
 #   variables: AWS_DEPLOY_ROLE_ARN (bootstrap output deploy_role_arns[<env>])
+#              optional TERRAFORM_TFVARS: HCL lines for settings that differ from variables.tf defaults
+#              (e.g. ingest_enabled, create_budgets), so CI applies what a local terraform.tfvars would
 #   prod only: required reviewers; optional NEON_PROJECT_ID, NEON_PARENT_BRANCH, NEON_OWNER_ROLE, NEON_DATABASE
 # Repository-level: variables TF_STATE_BUCKET, OWNER; secrets ALERT_EMAIL, optional NEON_API_KEY.
 name: Deploy environment
@@ -76,6 +78,13 @@ jobs:
         run: |
           (cd dist && sha256sum -c SHA256SUMS)
           (cd frontend/dist && sha256sum --quiet -c ../../dist/SPA_SHA256SUMS)
+
+      # *.auto.tfvars is git-ignored and loaded by every terraform command in the env root.
+      - name: Environment Terraform settings (TERRAFORM_TFVARS)
+        if: vars.TERRAFORM_TFVARS != ''
+        env:
+          TERRAFORM_TFVARS: ${{ vars.TERRAFORM_TFVARS }}
+        run: printf '%s\n' "$TERRAFORM_TFVARS" > "infra/envs/$ENV/ci.auto.tfvars"
 
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:

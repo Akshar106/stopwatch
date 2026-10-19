@@ -16,6 +16,8 @@ permissions:
 jobs:
   backup:
     name: Postgres backup (prod)
+    # Off until prod exists: set the repository variable PROD_BACKUP_ENABLED=true after the first prod deploy.
+    if: vars.PROD_BACKUP_ENABLED == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     # A separate GitHub environment WITHOUT required reviewers, so the scheduled job can run
