@@ -101,6 +101,8 @@ jobs:
   prod:
     name: Deploy prod
     needs: staging
+    # Skipped (not left waiting for approval) until the repository variable PROD_ENABLED is "true".
+    if: vars.PROD_ENABLED == 'true'
     uses: ./.github/workflows/deploy-environment.yml
     permissions:
       contents: read

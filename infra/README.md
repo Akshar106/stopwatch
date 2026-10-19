@@ -39,6 +39,7 @@ Resource counts from a mocked `terraform test` apply: prod 114, staging 99, boot
 | Environment `prod` | `NEON_PROJECT_ID`, `NEON_PARENT_BRANCH`, `NEON_DATABASE`, `NEON_OWNER_ROLE` (optional) | Migration rehearsal |
 | Environment `prod-backup` | `AWS_BACKUP_ROLE_ARN`, `LAKE_BUCKET` | Nightly `pg_dump` upload |
 | Repo variables | `PROD_BACKUP_ENABLED` | `true` turns on the nightly prod backup job (leave unset until prod exists) |
+| Repo variables | `PROD_ENABLED` | `true` adds the approval-gated prod job to each Deploy run (leave unset until prod exists, so pushes don't queue a prod deploy) |
 
 ## Day-to-day
 
