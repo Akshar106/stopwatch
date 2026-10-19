@@ -16,6 +16,25 @@
 - *Optional:* **Ask Stopwatch**, plain-English questions answered only from computed data via Groq (`openai/gpt-oss-120b`; Groq's free plan works), with a hard monthly spend cap.
 - **Public data-health page:** feed freshness, collection gaps, and daily coverage.
 
+## Screenshots
+
+These are real screenshots, not mockups. They were captured on **2026-10-19** from this repository running locally against the **live MBTA feed** (`npm run screenshots` in `frontend/` reproduces them against any running instance). At capture time Stopwatch had about 2.5 hours of collected data. That is why most heatmap cells say "not enough data" and pages carry a low-confidence banner instead of guessing. The health page also shows the overnight gap while the laptop worker was switched off.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/home-search.png" alt="Home page with stop search results for Harvard, showing station and bus stops with route badges"><br><sub><b>Search:</b> ~7,400 stops searched in the browser. "Near me" never sends your location anywhere.</sub></td>
+    <td width="50%"><img src="docs/images/route-page.png" alt="Red Line route page with on-time rate, typical and worst-case delay, and per-stop reliability bars"><br><sub><b>Route page:</b> on-time %, typical (median) and worst-case (p90) delay, per-stop bars, and the sample size.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/images/stop-reliability.png" alt="Stop page heatmap by day type and hour, a selected cell with delay statistics and a histogram, and the live arrivals panel"><br><sub><b>Stop page:</b> day × hour heatmap. The selected cell shows p50/p90, % on time, excess wait time and a delay histogram. Thin cells say "not enough data". Below is the live panel from the MBTA API.</sub></td>
+    <td width="50%"><img src="docs/images/commute-summary.png" alt="Saved commute card with approximate typical and worst-case delay, on-time percentage and number of arrivals"><br><sub><b>Saved commute</b> (demo account): a personal summary computed in the browser from public data, labeled as approximate.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/images/data-health.png" alt="Data health page showing operational status, last collection time, feed age, collections in the last hour, gaps and coverage"><br><sub><b>Data health:</b> live collection status, gaps (here, the overnight laptop gap) and daily coverage. It's public so anyone can judge how far to trust the numbers.</sub></td>
+    <td width="50%" align="center"><img src="docs/images/mobile-stop.png" alt="Stop page on a phone-sized screen" width="260"><br><sub><b>Mobile:</b> the same stop page at phone width.</sub></td>
+  </tr>
+</table>
+
 ## Measured so far
 
 All numbers are from **one evening of live data (2026-10-18)** on a laptop. Treat them as early, not steady state.

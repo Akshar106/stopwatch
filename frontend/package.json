@@ -22,7 +22,8 @@
     "test:e2e": "vite build && playwright test",
     "size": "node scripts/check-bundle-size.mjs",
     "fixtures": "node scripts/generate-fixtures.mjs",
-    "lighthouse": "vite build && npx --yes @lhci/cli@0.15.1 autorun"
+    "lighthouse": "vite build && npx --yes @lhci/cli@0.15.1 autorun",
+    "screenshots": "node scripts/capture-screenshots.mjs"
   },
   "dependencies": {
     "@observablehq/plot": "^0.6.17",
