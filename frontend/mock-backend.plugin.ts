@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { fileURLToPath } from "node:url";
+import { gzipSync } from "node:zlib";
 import type { Plugin } from "vite";
 import type { RouteDetail } from "./src/lib/types.ts";
 import {
@@ -47,7 +48,15 @@ export function mockBackendPlugin(): Plugin {
       }
       res.setHeader("content-type", "application/json");
       res.setHeader("cache-control", "no-cache");
-      res.end(JSON.stringify(body));
+      res.setHeader("vary", "accept-encoding");
+      // Production serves /data compressed (CloudFront `compress = true`); without this a route
+      // file goes over Lighthouse's simulated mobile network ~10x larger than real users get it.
+      if (/\bgzip\b/.test(String(req.headers["accept-encoding"] ?? ""))) {
+        res.setHeader("content-encoding", "gzip");
+        res.end(gzipSync(JSON.stringify(body)));
+      } else {
+        res.end(JSON.stringify(body));
+      }
       return;
     }
     if (url.pathname.startsWith("/api/v1/")) {
