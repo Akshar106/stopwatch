@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import { RouteBadge, UnknownRouteBadge } from "../../components/RouteBadge";
-import { EmptyState, ErrorState, Loading, Skeleton } from "../../components/States";
+import { EmptyState, ErrorState, PageSkeleton } from "../../components/States";
 import { DataError } from "../../lib/dataClient";
 import { routeName } from "../../lib/format";
 import { usePageTitle } from "../../lib/hooks";
@@ -16,7 +16,7 @@ export default function StopPage() {
   const { agency: agencyId, stopId = "" } = useParams();
   const { agency, isLoading, error, notFound, refetch } = useAgency(agencyId);
 
-  if (isLoading) return <Loading label="Loading stop…" />;
+  if (isLoading) return <StopLoading stopId={stopId} />;
   if (error)
     return <ErrorState title="Couldn't load transit data" error={error} onRetry={refetch} />;
   if (notFound || !agency) {
@@ -31,20 +31,23 @@ export default function StopPage() {
   return <StopForAgency agency={agency} stopId={stopId} />;
 }
 
+/** One placeholder while the manifest and then the stop list load, so nothing moves in between. */
+function StopLoading({ stopId }: { stopId: string }) {
+  return (
+    <>
+      <h1>Stop {stopId}</h1>
+      <PageSkeleton label="Loading stop…" />
+    </>
+  );
+}
+
 function StopForAgency({ agency, stopId }: { agency: AgencyManifest; stopId: string }) {
   const { index, query } = useSearchIndex(agency);
   const routesById = useRoutesById(agency);
   const place = useMemo(() => (index ? resolvePlace(index, stopId) : null), [index, stopId]);
   usePageTitle(place?.name ?? null);
 
-  if (query.isPending) {
-    return (
-      <>
-        <h1>Stop {stopId}</h1>
-        <Skeleton height="20rem" label="Loading stop…" />
-      </>
-    );
-  }
+  if (query.isPending) return <StopLoading stopId={stopId} />;
   if (query.error) {
     return (
       <ErrorState
@@ -189,7 +192,7 @@ function StopView({
         </div>
       )}
 
-      {routeId && detail.isPending && <Skeleton height="28rem" label="Loading reliability data…" />}
+      {routeId && detail.isPending && <PageSkeleton label="Loading reliability data…" />}
       {detail.error && (
         <ErrorState
           title={

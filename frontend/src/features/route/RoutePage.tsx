@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import { ChartFigure, TrendChart } from "../../components/charts";
 import { RouteBadge } from "../../components/RouteBadge";
-import { EmptyState, ErrorState, Loading, Skeleton } from "../../components/States";
+import { EmptyState, ErrorState, PageSkeleton } from "../../components/States";
 import { tabPanelProps } from "../../components/tabPanelProps";
 import { Tabs } from "../../components/Tabs";
 import { DataError } from "../../lib/dataClient";
@@ -30,7 +30,7 @@ import styles from "./RoutePage.module.css";
 export default function RoutePage() {
   const { agency: agencyId, routeId = "" } = useParams();
   const { agency, isLoading, error, notFound, refetch } = useAgency(agencyId);
-  if (isLoading) return <Loading label="Loading route…" />;
+  if (isLoading) return <RouteLoading title={`Route ${routeId}`} />;
   if (error)
     return <ErrorState title="Couldn't load transit data" error={error} onRetry={refetch} />;
   if (notFound || !agency) {
@@ -45,26 +45,30 @@ export default function RoutePage() {
   return <RouteForAgency agency={agency} routeId={routeId} />;
 }
 
+/** One placeholder while the manifest and then the route's data load, so nothing moves in between. */
+function RouteLoading({ title }: { title: string }) {
+  return (
+    <>
+      <h1>{title}</h1>
+      <PageSkeleton label="Loading route…" />
+    </>
+  );
+}
+
 function RouteForAgency({ agency, routeId }: { agency: AgencyManifest; routeId: string }) {
   const detail = useRouteDetail(agency, routeId);
   const routesById = useRoutesById(agency);
   const summary = routesById.get(routeId);
   const info = detail.data?.route ?? summary;
-  usePageTitle(info ? routeFullLabel(info) : `Route ${routeId}`);
+  const title = info ? routeFullLabel(info) : `Route ${routeId}`;
+  usePageTitle(title);
 
-  if (detail.isPending) {
-    return (
-      <>
-        <h1>{info ? routeFullLabel(info) : `Route ${routeId}`}</h1>
-        <Skeleton height="24rem" label="Loading route data…" />
-      </>
-    );
-  }
+  if (detail.isPending) return <RouteLoading title={title} />;
   if (detail.error) {
     const missing = detail.error instanceof DataError && detail.error.status === 404;
     return (
       <>
-        <h1>{info ? routeFullLabel(info) : `Route ${routeId}`}</h1>
+        <h1>{title}</h1>
         {missing ? (
           <EmptyState title="No published data for this route">
             <p>

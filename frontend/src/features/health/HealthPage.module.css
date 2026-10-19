@@ -34,3 +34,14 @@
 .subheading {
   margin-top: var(--space-5);
 }
+
+/* The status card's four stats sit in two rows on phones and one row on wider screens. */
+.statusSkeleton {
+  height: 22rem;
+}
+
+@media (min-width: 44rem) {
+  .statusSkeleton {
+    height: 12rem;
+  }
+}
