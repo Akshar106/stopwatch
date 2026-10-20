@@ -17,7 +17,7 @@ The riskiest code is the pure core (inference, GTFS time math, metrics), so it g
 | Frontend unit | Components, hooks, stop-search ranking, client-side commute summary math | Vitest + React Testing Library | Every push | Fails CI |
 | End-to-end | Search → stop page → heatmap; demo login → save commute → summary; delete account; "near me" makes no location network request | Playwright against Docker Compose in replay mode | Every PR | Fails CI |
 | Accessibility | Key pages | axe-core via Playwright | Every PR | No serious or critical violations |
-| Performance | Bundle size, Lighthouse budgets; k6 against staging (20 rps API, 200 rps CDN) | Vite size check, Lighthouse CI, k6 | PR / weekly | Budget files |
+| Performance | Bundle size, Lighthouse budgets | Vite size check, Lighthouse CI | PR / nightly | Budget files |
 | Data quality | Each rollup: coverage, row-count deltas, null rates, delay sanity (−30…+120 min) | Checks inside `daily-rollup` | Every run | Blocks the manifest swap |
 | Inference accuracy *(should)* | Estimates vs MBTA LAMP subway arrivals | `lamp-validate` job | Weekly | Report; regression > 20% opens an issue |
 | Ask evals *(should)* | 60 labeled questions | Eval harness (staging, cost-capped) | Nightly / on label | Tool accuracy ≥ 90%, grounding 100% |
@@ -44,7 +44,7 @@ No production user data is ever used in tests.
 flowchart LR
   pr["Pull request"] --> lint["Lint + types<br/>ruff, mypy, import-linter,<br/>eslint, tsc"]
   pr --> tests["Tests<br/>unit, replay, integration,<br/>API, Vitest"]
-  pr --> sec["Security<br/>gitleaks, pip-audit, npm audit,<br/>OSV, Semgrep, CodeQL"]
+  pr --> sec["Security<br/>gitleaks, pip-audit, npm audit,<br/>OSV, Semgrep"]
   pr --> iac["IaC<br/>terraform fmt/validate,<br/>tflint, Checkov"]
   pr --> e2e["E2E + a11y<br/>Playwright on Compose"]
   pr --> plan["terraform plan<br/>(comment on PR)"]
@@ -62,10 +62,8 @@ flowchart LR
 **Workflows:**
 
 - `ci.yml`: every PR and push.
-- `codeql.yml`: GitHub's default setup.
 - `deploy.yml`: on merge to `main`. Staging automatically, prod behind approval.
 - `nightly.yml`: `pg_dump` backup, feed-drift check, Ask evals, Lighthouse.
-- `weekly.yml`: k6, OWASP ZAP baseline against staging, LAMP validation.
 - `teardown.yml`: manual dispatch; destroys staging.
 
 **Rules:**
@@ -73,8 +71,6 @@ flowchart LR
 - Actions are pinned to commit SHAs. Workflow `permissions:` default to read-only. Only deploy jobs get `id-token: write`.
 - Artifacts are **built once and promoted**. Staging and prod run the same zip, verified by SHA-256.
 - Packaging builds arm64 wheels on x86 runners with `uv pip install --python-platform aarch64-manylinux_2_28 --only-binary=:all:`. No QEMU or Docker emulation is needed.
-- Branch protection on `main`: required checks, linear history, no force-push.
-- Conventional commits feed an automatic `CHANGELOG.md` on release tags.
 
 ## 3. Docker (local development)
 
@@ -144,11 +140,8 @@ infra/
 |---|---|---|---|
 | gitleaks | Committed secrets | pre-commit + CI | Yes |
 | pip-audit, `npm audit`, OSV-Scanner | Known-vulnerable dependencies | CI + nightly | High or critical: yes |
-| Dependabot | Outdated dependencies, Actions | Weekly PRs | — |
-| CodeQL | Code-level vulnerabilities (Python, JS/TS) | PR + weekly | High: yes |
 | Semgrep (curated + custom rules) | Raw SQL strings, `verify=False`, logging of PII fields, missing owner scope in repositories | CI | Yes |
 | Checkov / Trivy config | Terraform misconfigurations | CI | Yes (with justified exceptions) |
-| OWASP ZAP baseline | Headers, cookies, common web issues on staging | Weekly | Report → issue |
 | Authorization matrix tests | IDOR / BOLA | CI | Yes |
 
 ## 8. Monitoring
@@ -189,7 +182,7 @@ Lambda (errors, throttles, duration), API Gateway (count, 4xx, 5xx, latency) and
 
 ## 9. Alerts
 
-There are 10 CloudWatch alarms (the free-tier limit) plus 2 AWS Budgets. All route to the SNS topic `stopwatch-alerts` → operator email. Each alarm description contains its severity and runbook link.
+There are 10 CloudWatch alarms (the free-tier limit) plus 2 AWS Budgets. All route to the SNS topic `stopwatch-alerts` → operator email. Each alarm description contains its severity and a one-line summary; the matching runbook is in §10.
 
 | Alarm | Condition | Severity | Runbook |
 |---|---|---|---|
@@ -210,11 +203,10 @@ There are 10 CloudWatch alarms (the free-tier limit) plus 2 AWS Budgets. All rou
 
 - **SEV-2:** user-visible outage or data loss in progress. Respond the same day.
 - **SEV-3:** degradation. Respond within 48 h.
-- Every SEV-2 gets a postmortem.
 
 ## 10. Incident runbooks
 
-Runbooks live in `docs/runbooks/`. Each follows the same template: **symptoms → impact → diagnose → mitigate → verify → follow up**.
+Each runbook follows the same steps: **symptoms → impact → diagnose → mitigate → verify → follow up**.
 
 ### RB-1: Ingestion stale
 
@@ -235,7 +227,6 @@ Runbooks live in `docs/runbooks/`. Each follows the same template: **symptoms �
   - Our bug → roll back the alias: `make rollback FN=ingest-tick`.
   - State corruption → delete `state/mbta/latest.json.gz`. The next tick cold-starts safely.
 - **Verify:** `IngestSuccess` resumes; `data/v1/health/mbta.json` shows the new success within 5 minutes (it is rewritten every 5 minutes).
-- **Follow up:** postmortem if it ran over 30 min; update the error-budget tracking.
 
 ### RB-2: Feed parse errors / schema drift
 
@@ -291,15 +282,4 @@ Runbooks live in `docs/runbooks/`. Each follows the same template: **symptoms �
 1. Choose a point: Neon PITR if within the window, otherwise the newest `pg_dump` in S3.
 2. Restore into a **new branch** and run `make verify-db` (integration smoke).
 3. Switch the `DATABASE_URL` parameter to the restored branch and redeploy the alias.
-4. Record the RPO and RTO actually achieved in the drill log.
-
-**Postmortem template** (blameless): summary, impact (users, data, duration), timeline, root cause (5 whys), what went well, what didn't, action items with owners and dates. Postmortems live in `docs/postmortems/` and are linked from the public changelog when users were affected.
-
-## 11. Operating cadence
-
-| Cadence | Activity |
-|---|---|
-| Weekly | Review the SLO dashboard and error budget; triage Dependabot PRs; read k6/ZAP reports |
-| Monthly | Cost review (target ≤ $1); prune feature flags; check the feed-drift issue history |
-| Quarterly | Restore drill (RB-7); rotate long-lived secrets; re-verify free-tier terms; review this threat model |
-| Per release | Changelog, migration rehearsal, smoke, demo account sanity check |
+4. Note the RPO and RTO actually achieved.

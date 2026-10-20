@@ -2,7 +2,7 @@
 
 - **Status:** Accepted, 2026-10-18. ID-token verification uses PyJWT instead of Authlib, which earlier drafts of [04 §2](../04-architecture.md#2-technology-stack) and [05 §2](../05-security-reliability.md#2-authentication) named; both now match this ADR.
 - **Deciders:** project author
-- **Related:** [05 §2–3](../05-security-reliability.md#2-authentication), [contracts §4](../contracts.md#4-dynamic-api-apiv1), [ADR-005](0005-api-gateway-http-api-over-function-urls.md), [RB-6](../runbooks/RB-6-secret-leak.md)
+- **Related:** [05 §2–3](../05-security-reliability.md#2-authentication), [contracts §4](../contracts.md#4-dynamic-api-apiv1), [ADR-005](0005-api-gateway-http-api-over-function-urls.md), RB-6
 
 ## Context
 

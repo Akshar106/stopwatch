@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Nightly logical backup of the Neon Postgres database (docs/05 §10.5, runbook RB-7).
+# Nightly logical backup of the Neon Postgres database (docs/05 §10.5).
 #
 #   pg_dump -Fc "$DATABASE_OWNER_URL"  ->  s3://$LAKE_BUCKET/backups/postgres/YYYY-MM-DD.dump
 #

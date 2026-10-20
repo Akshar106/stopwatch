@@ -2,7 +2,6 @@
 # terraform.tfvars is not git-ignored by default and holds your email: don't commit it.
 
 owner       = "your-name"
-github_repo = "your-github-user/stopwatch"
 alert_email = "you@example.com"
 ttl         = "none" # or a date, e.g. "2026-12-31"
 

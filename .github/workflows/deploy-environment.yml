@@ -56,7 +56,6 @@ jobs:
       TF_IN_AUTOMATION: "1"
       TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
       TF_VAR_owner: ${{ vars.OWNER }}
-      TF_VAR_github_repo: ${{ github.repository }}
       TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
       HAS_NEON_KEY: ${{ secrets.NEON_API_KEY != '' }}
     steps:

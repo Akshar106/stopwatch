@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run the API on the host against local Postgres (make db) and ./.localdata. Used by .claude/launch.json.
+# Run the API on the host against local Postgres (make db) and ./.localdata.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT/backend"

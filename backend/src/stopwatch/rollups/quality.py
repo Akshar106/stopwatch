@@ -1,4 +1,4 @@
-"""Data-quality gate: a build is published only if the day's data looks sane (docs/05 §10.2, RB-3)."""
+"""Data-quality gate: a build is published only if the day's data looks sane (docs/05 §10.2)."""
 
 from __future__ import annotations
 

@@ -66,7 +66,7 @@ If you can't use these buttons, email the contact address above and we will do i
 
 ## Security
 
-Connections use HTTPS (TLS) everywhere. Session tokens are stored only as one-way hashes. Secrets are kept in an encrypted parameter store, never in code. Only the operator can access production systems, with multi-factor authentication. If we learn that your personal data was likely accessed without authorisation, **we will tell you** by email (or in the app for demo accounts, which have no email) without undue delay, along with what happened and what we did about it. To report a security problem, see [SECURITY.md](../SECURITY.md).
+Connections use HTTPS (TLS) everywhere. Session tokens are stored only as one-way hashes. Secrets are kept in an encrypted parameter store, never in code. Only the operator can access production systems, with multi-factor authentication. If we learn that your personal data was likely accessed without authorisation, **we will tell you** by email (or in the app for demo accounts, which have no email) without undue delay, along with what happened and what we did about it. To report a security problem, see SECURITY.md.
 
 ## Children
 
@@ -74,7 +74,7 @@ Stopwatch is not aimed at children under 13 and we do not knowingly collect thei
 
 ## Changes to this policy
 
-We will update this page when what we collect or how we use it changes, change the date at the top, and note it in the [changelog](../CHANGELOG.md). If a change means collecting new kinds of personal data, we will ask signed-in users before applying it to them.
+We will update this page when what we collect or how we use it changes, and change the date at the top. If a change means collecting new kinds of personal data, we will ask signed-in users before applying it to them.
 
 ## About the numbers on this site
 

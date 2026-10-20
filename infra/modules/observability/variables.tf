@@ -8,11 +8,6 @@ variable "alert_email" {
   type        = string
 }
 
-variable "runbook_base_url" {
-  description = "Base URL of docs/runbooks, linked from every alarm description (e.g. https://github.com/<owner>/<repo>/blob/main/docs/runbooks)."
-  type        = string
-}
-
 variable "create_alarms" {
   description = "Create the 10 CloudWatch alarms. The free tier is 10 alarms per *account*, so only one environment (prod) should have them on by default."
   type        = bool

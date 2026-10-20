@@ -39,3 +39,6 @@ crash.log
 .idea/
 .vscode/
 evals/ask/results/
+
+# Local Claude Code config (launch.json, worktrees)
+.claude/

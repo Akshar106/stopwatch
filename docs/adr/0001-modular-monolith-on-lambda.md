@@ -6,7 +6,7 @@
 
 ## Context
 
-Stopwatch has one developer working about 15 hours a week, and a budget of **$0 when idle** with no recurring $10–30/month bill ([02 cost model](../02-concept-selection.md#cost-model-added-after-budget-discussion)). It still needs several kinds of compute with very different profiles:
+Stopwatch has one developer working about 15 hours a week, and a budget of **$0 when idle** with no recurring $10–30/month bill (02 cost model). It still needs several kinds of compute with very different profiles:
 
 | Workload | Profile |
 |---|---|

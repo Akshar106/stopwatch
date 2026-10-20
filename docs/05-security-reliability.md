@@ -104,13 +104,13 @@ These are mapped by risk name from the OWASP Top 10 and the OWASP API Security T
 
 | Risk | How Stopwatch is exposed | Control | Verified by |
 |---|---|---|---|
-| Broken (object-level) access control | `/commutes/{id}` IDs | Owner-scoped repositories; 404 on mismatch; UUIDv4 IDs | Authorization matrix tests; ZAP baseline on staging |
+| Broken (object-level) access control | `/commutes/{id}` IDs | Owner-scoped repositories; 404 on mismatch; UUIDv4 IDs | Authorization matrix tests |
 | Broken authentication | Login, sessions, demo | OIDC + PKCE; hashed session tokens; rotation; `__Host-` cookie | Unit tests for token validation (bad iss, aud, nonce, expiry); cookie-flag tests |
 | Injection | SQL, the Ask feature | SQLAlchemy bound parameters only (raw string SQL banned by a lint rule); Ask never generates SQL (fixed tools, §6) | Semgrep rules; tests with injection payloads |
 | Cryptographic failures | Cookies, secrets, transit | TLS everywhere (CloudFront TLSv1.2_2021 policy; Neon `sslmode=verify-full`); SSM SecureString; SHA-256 token hashing | Config tests; IaC scanner |
 | Insecure design | Demo, alerts, cost | Abuse cases written down (this doc); quotas; concurrency caps; budget alarms | Threat-model review in PR template |
 | Security misconfiguration | S3, CloudFront, headers | Block Public Access on all buckets; OAC-only bucket policies; TLS-only (`aws:SecureTransport`); strict response-headers policy | Checkov/Trivy on Terraform; header test in smoke suite |
-| Vulnerable or outdated components / supply chain | PyPI, npm, Actions | Lockfiles with hashes (uv, npm); Dependabot; `pip-audit` + `npm audit` + OSV-Scanner; Actions pinned to commit SHAs | CI gates (high or critical → fail) |
+| Vulnerable or outdated components / supply chain | PyPI, npm, Actions | Lockfiles with hashes (uv, npm); `pip-audit` + `npm audit` + OSV-Scanner; Actions pinned to commit SHAs | CI gates (high or critical → fail) |
 | Software and data integrity failures | Deploy pipeline, published data | OIDC deploy (no static keys); protected `prod` environment with required approval; data-quality gate before the manifest swap | Branch protection; rollup gate tests |
 | Logging and monitoring failures | Everything | Structured logs with request IDs; audit log; alarms (see [06](06-quality-operations.md)) | Alarm tests in staging (forced failures) |
 | SSRF / unsafe consumption of APIs | Agency feeds | Feed URLs come from config, not user input; no redirects to other hosts; 8 MiB body cap; 3 s/10 s timeouts; protobuf parse errors contained; value sanity checks (timestamps within ±1 day, sequence ranges) | Fuzz tests with malformed or oversized feeds |
@@ -204,7 +204,7 @@ Principles:
 | API latency | p95 < 300 ms (warm); p99 < 3 s (cold path) | — | API Gateway latency percentiles |
 | Alert delivery *(should)* | 95% within 2 min of trigger | — | `notifications.sent_at − created_at` |
 
-**Error-budget policy:** if the freshness budget is exhausted, feature work pauses and the next work item is a reliability fix plus a postmortem.
+**Error-budget policy:** if the freshness budget is exhausted, feature work pauses and the next work item is a reliability fix.
 
 ### 10.2 Failure handling
 
@@ -253,17 +253,17 @@ There is **no Redis**, because reads are already served from the CDN and the dyn
 | Infrastructure | Terraform in git; state in a versioned bucket | — | < 1 h (`make up`) |
 | Secrets | SSM; documented re-creation steps | — | < 30 min |
 
-**Restore drill:** quarterly, restore the latest dump into a Neon branch, run `make verify-db DATABASE_URL=<branch>` against it (connectivity, migrations at head, tables, append-only audit log), and record the timing in `docs/runbooks/restore-drill.md`.
+**Restore drill:** quarterly, restore the latest dump into a Neon branch, run `make verify-db DATABASE_URL=<branch>` against it (connectivity, migrations at head, tables, append-only audit log), and note how long it took.
 
 ## 11. Performance goals (measurable)
 
 | Goal | Target | How it is measured |
 |---|---|---|
-| Public page TTFB (cached) | p95 < 200 ms | k6 against CloudFront; CloudWatch CloudFront metrics |
+| Public page TTFB (cached) | p95 < 200 ms | CloudWatch CloudFront metrics |
 | Mobile LCP (route page, mid-tier phone, 4G) | < 2.5 s (CI gate: 2.5 s for `/` and `/health`, 3.0 s for stop and route pages) | Lighthouse CI on every PR and nightly against staging (`frontend/lighthouserc.json`). Stop and route pages measure ~2.6–2.7 s: their largest element waits for the data JSON, and the remaining cost is the React runtime, so 2.5 s there needs prerendering |
 | Initial JS bundle | < 200 KB gzip | Vite build-size check in CI |
 | Stop search | < 100 ms per keystroke for 8k stops | Vitest benchmark |
-| API p95 (warm) | < 300 ms | API Gateway percentiles; k6 at 20 rps |
+| API p95 (warm) | < 300 ms | API Gateway percentiles |
 | API cold path | p99 < 3 s (Lambda + Neon wake) | Synthetic test after 10 min idle |
 | Ingest tick duration | p95 < 15 s, p99 < 40 s (timeout 50 s) | `IngestDurationMs` |
 | Feed-to-event lag | p95 < 2 min | `observed_at − est_arrival` distribution |

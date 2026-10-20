@@ -29,7 +29,7 @@ All times are ISO-8601 in UTC unless noted. Service dates (`YYYY-MM-DD`) and clo
 
 `{route_id}` is URL-encoded with `encodeURIComponent` (MBTA ids such as `Green-B` or `34E` need no escaping, but don't rely on that).
 
-**Stability.** Files carry `schema_version: 1` in the manifest. Within `/data/v1`, fields may be **added** but not removed or changed in meaning. A breaking change gets a new prefix (`/data/v2`) and both are published in parallel for a transition period announced in the [changelog](../CHANGELOG.md).
+**Stability.** Files carry `schema_version: 1` in the manifest. Within `/data/v1`, fields may be **added** but not removed or changed in meaning. A breaking change gets a new prefix (`/data/v2`) and both are published in parallel for a transition period.
 
 **Terms.** The underlying feed data comes from the MBTA under the [MBTA Developers License Agreement](https://www.mbta.com/developers). Stopwatch figures are independent, unofficial estimates. If you republish them, say so and link to the methodology. Please cache files rather than polling: they change once a day.
 

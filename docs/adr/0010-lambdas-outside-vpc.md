@@ -2,7 +2,7 @@
 
 - **Status:** Accepted, 2026-10-18
 - **Deciders:** project author
-- **Related:** [04 §4](../04-architecture.md#4-containers-and-deployment-aws-us-east-1), [05 §3, §8](../05-security-reliability.md#8-secrets-management), [06 §4](../06-quality-operations.md#4-infrastructure-as-code-terraform), [ADR-004](0004-neon-free-postgres-over-rds.md), [RB-6](../runbooks/RB-6-secret-leak.md)
+- **Related:** [04 §4](../04-architecture.md#4-containers-and-deployment-aws-us-east-1), [05 §3, §8](../05-security-reliability.md#8-secrets-management), [06 §4](../06-quality-operations.md#4-infrastructure-as-code-terraform), [ADR-004](0004-neon-free-postgres-over-rds.md), RB-6
 
 ## Context
 
@@ -27,7 +27,7 @@ There is no database inside AWS to protect with network isolation: Neon is a hos
   - **Least-privilege IAM** per function ([contracts §1](../contracts.md#iam-least-privilege)); reserved concurrency on every function.
   - **Egress is fixed by configuration:** feed URLs come from `platform/agencies.py`, never from user input; no cross-host redirects; byte caps and timeouts on every fetch.
   - **Edge trust instead of network trust for the API:** the `api` function accepts only requests carrying CloudFront's `X-Origin-Verify` secret, and takes the client IP only from `CloudFront-Viewer-Address` ([ADR-005](0005-api-gateway-http-api-over-function-urls.md)).
-  - **Rotation runbook** for every secret ([RB-6](../runbooks/RB-6-secret-leak.md)).
+  - **Rotation runbook** for every secret (RB-6).
 - The IaC scanner's "Lambda not in a VPC" finding (Checkov `CKV_AWS_117`) is suppressed **inline with a reference to this ADR**, not globally.
 
 ## Alternatives considered
@@ -49,7 +49,7 @@ There is no database inside AWS to protect with network isolation: Neon is a hos
 
 **Negative**
 
-- **No network-level isolation of database access.** Anyone holding a valid Neon connection string can connect from anywhere; protection rests on credential secrecy, TLS and role scoping. A leaked `database_url` is a SEV-2 handled by [RB-6](../runbooks/RB-6-secret-leak.md).
+- **No network-level isolation of database access.** Anyone holding a valid Neon connection string can connect from anywhere; protection rests on credential secrecy, TLS and role scoping. A leaked `database_url` is a SEV-2 handled by RB-6.
 - Egress cannot be restricted by security groups; an exploited function could reach arbitrary hosts. IAM scoping limits what it could do with AWS, not where it could send data.
 - Security reviewers and scanners will flag the decision; the inline justification and this ADR must stay current.
 

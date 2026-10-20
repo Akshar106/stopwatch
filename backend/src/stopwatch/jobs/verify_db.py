@@ -1,4 +1,4 @@
-"""Smoke-check a database before pointing the app at it (restore drill, RB-7).
+"""Smoke-check a database before pointing the app at it (restore drill).
 
     DATABASE_URL=... python -m stopwatch.jobs.verify_db
 

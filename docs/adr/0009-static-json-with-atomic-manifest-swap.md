@@ -2,7 +2,7 @@
 
 - **Status:** Accepted, 2026-10-18
 - **Deciders:** project author
-- **Related:** [04 §6.3, §8.1](../04-architecture.md#63-analytics-schemas-parquet), [contracts §2–3](../contracts.md#3-published-data-typescript-notation-all-times-iso-8601-utc-unless-noted), [api.md](../api.md), [RB-3](../runbooks/RB-3-rollup-failed.md), [ADR-002](0002-observations-in-s3-parquet-duckdb.md)
+- **Related:** [04 §6.3, §8.1](../04-architecture.md#63-analytics-schemas-parquet), [contracts §2–3](../contracts.md#3-published-data-typescript-notation-all-times-iso-8601-utc-unless-noted), [api.md](../api.md), RB-3, [ADR-002](0002-observations-in-s3-parquet-duckdb.md)
 
 ## Context
 

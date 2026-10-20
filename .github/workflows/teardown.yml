@@ -34,7 +34,6 @@ jobs:
       TF_IN_AUTOMATION: "1"
       TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
       TF_VAR_owner: ${{ vars.OWNER }}
-      TF_VAR_github_repo: ${{ github.repository }}
       TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

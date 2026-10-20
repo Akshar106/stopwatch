@@ -32,8 +32,6 @@ Small corrections (typos, broken links, updated numbers that do not change the d
 4. Set the status to *Accepted* with the date when the PR merges. Add a row to the table above and to the decision log in [04 §12](../04-architecture.md#12-decision-log-to-be-expanded-into-adrs).
 5. If it replaces an earlier ADR, mark that one *Superseded by ADR-NNNN* in the same PR.
 
-See also [CONTRIBUTING.md](../../CONTRIBUTING.md#adding-an-adr).
-
 ## Template
 
 ```markdown

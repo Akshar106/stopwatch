@@ -50,7 +50,7 @@ test: db ## All backend tests with coverage
 migrate: db ## Apply database migrations to local Postgres
 	cd "$(BACKEND)" && $(LOCAL_ENV) uv run alembic upgrade head
 
-verify-db: ## Smoke-check the database at DATABASE_URL (default: local) before switching to it (RB-7)
+verify-db: ## Smoke-check the database at DATABASE_URL (default: local) before switching to it
 	cd "$(BACKEND)" && $(if $(DATABASE_URL),DATABASE_URL=$(DATABASE_URL),$(LOCAL_ENV)) uv run python -m stopwatch.jobs.verify_db
 
 seed: migrate ## Import the static GTFS schedule + catalog for configured agencies

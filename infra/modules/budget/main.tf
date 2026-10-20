@@ -1,6 +1,6 @@
 # AWS Budgets guardrails (docs/04 §10, docs/06 §9): the project targets about $0.55/month, so an
 # actual spend above $1 or a forecast above $5 means something is wrong (runaway loop, abuse, a
-# forgotten resource). Budgets without actions are free. Runbook: RB-5.
+# forgotten resource). Budgets without actions are free.
 
 locals {
   budgets = {
@@ -41,5 +41,5 @@ resource "aws_budgets_budget" "this" {
     subscriber_email_addresses = var.email_addresses
   }
 
-  tags = { severity = each.value.severity, runbook = "RB-5" }
+  tags = { severity = each.value.severity }
 }

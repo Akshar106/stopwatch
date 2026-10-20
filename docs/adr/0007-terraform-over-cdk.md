@@ -6,9 +6,9 @@
 
 ## Context
 
-The cost model only works if every cloud resource can be **created and destroyed with one command** and nothing is left behind ([02 cost model](../02-concept-selection.md#cost-model-added-after-budget-discussion)). Staging must be disposable ($0 when torn down), prod must be reproducible after a disaster (RTO < 1 h for infrastructure, [05 §10.5](../05-security-reliability.md#105-backups-and-disaster-recovery)), and the CI pipeline must be able to plan changes on every pull request.
+The cost model only works if every cloud resource can be **created and destroyed with one command** and nothing is left behind (02 cost model). Staging must be disposable ($0 when torn down), prod must be reproducible after a disaster (RTO < 1 h for infrastructure, [05 §10.5](../05-security-reliability.md#105-backups-and-disaster-recovery)), and the CI pipeline must be able to plan changes on every pull request.
 
-The stack is AWS-only (Lambda, S3, EventBridge Scheduler, API Gateway, CloudFront, CloudWatch, SNS, Budgets, IAM, SSM) plus Neon, which is created once by hand. IaC tools are named in a minority of postings (Terraform/IaC 4 of 18 companies, [02](../02-concept-selection.md)), so recognition matters more than features.
+The stack is AWS-only (Lambda, S3, EventBridge Scheduler, API Gateway, CloudFront, CloudWatch, SNS, Budgets, IAM, SSM) plus Neon, which is created once by hand. IaC tools are named in a minority of postings (Terraform/IaC 4 of 18 companies, 02), so recognition matters more than features.
 
 ## Decision
 

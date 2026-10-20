@@ -100,7 +100,7 @@ jobs:
           body="$RUNNER_TEMP/issue.md"
           {
             echo "The nightly feed-drift check exited with code ${{ steps.drift.outputs.exit_code }} on $(date -u +%Y-%m-%d)."
-            echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID} · Runbook: docs/runbooks/RB-2.md"
+            echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
             echo
             echo '```text'
             tail -c 60000 "$RUNNER_TEMP/drift.txt"

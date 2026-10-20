@@ -1,5 +1,5 @@
 # Every pull request and every push to main (docs/06 §2). All jobs must pass before merge.
-# Third-party actions are pinned to full commit SHAs; Dependabot keeps the pins current.
+# Third-party actions are pinned to full commit SHAs.
 name: CI
 
 on:

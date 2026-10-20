@@ -32,11 +32,6 @@ variable "ttl" {
   default     = "none"
 }
 
-variable "github_repo" {
-  description = "owner/name of the GitHub repository (runbook links in alarm descriptions)."
-  type        = string
-}
-
 variable "alert_email" {
   description = "Operator email for alarms and budgets (SNS subscription must be confirmed once). Personal data: pass via TF_VAR_alert_email or an uncommitted tfvars file."
   type        = string

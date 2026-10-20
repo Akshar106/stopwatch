@@ -349,7 +349,6 @@ module "observability" {
 
   name_prefix               = local.name_prefix
   alert_email               = var.alert_email
-  runbook_base_url          = "https://github.com/${var.github_repo}/blob/main/docs/runbooks"
   create_alarms             = var.create_alarms
   create_dashboards         = var.create_dashboards
   ingest_enabled            = var.ingest_enabled

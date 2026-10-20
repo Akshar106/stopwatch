@@ -2,11 +2,11 @@
 
 - **Status:** Accepted, 2026-10-18
 - **Deciders:** project author
-- **Related:** [04 §2, §6.2](../04-architecture.md#62-postgresql-schema-mvp-and-should), [05 §10.5](../05-security-reliability.md#105-backups-and-disaster-recovery), [ADR-002](0002-observations-in-s3-parquet-duckdb.md), [ADR-010](0010-lambdas-outside-vpc.md), [RB-7](../runbooks/RB-7-restore-database.md)
+- **Related:** [04 §2, §6.2](../04-architecture.md#62-postgresql-schema-mvp-and-should), [05 §10.5](../05-security-reliability.md#105-backups-and-disaster-recovery), [ADR-002](0002-observations-in-s3-parquet-duckdb.md), [ADR-010](0010-lambdas-outside-vpc.md), RB-7
 
 ## Context
 
-Stopwatch needs a relational database for users, sessions, saved commutes, idempotency keys, rate-limit counters, the audit log, the transit catalog and `route_daily_metrics` (< 100 MB). Relational SQL is also a named skill in the market data behind the project (11 of 18 companies, [02](../02-concept-selection.md)).
+Stopwatch needs a relational database for users, sessions, saved commutes, idempotency keys, rate-limit counters, the audit log, the transit catalog and `route_daily_metrics` (< 100 MB). Relational SQL is also a named skill in the market data behind the project (11 of 18 companies, 02).
 
 Traffic is low and bursty: user requests during the day, `schedule-import` at 03:30 ET, `daily-rollup` at 04:15 ET, `maintenance` at 05:00 ET. For most of the day nothing touches the database, so a database billed per hour is paying for idle time.
 
@@ -53,7 +53,7 @@ Options checked against the $0-when-idle budget:
 - **An external vendor** outside the AWS account: separate status page, account security and terms. Free-plan limits (storage, compute-hours, PITR window, branch count) can change and are re-checked quarterly ([06 §11](../06-quality-operations.md#11-operating-cadence)).
 - The database is reached over the public internet; Neon's IP allow-list cannot help because Lambda egress IPs are dynamic, so credential hygiene carries more weight ([ADR-010](0010-lambdas-outside-vpc.md)).
 - The free-plan PITR window is short, so the nightly dump sets the realistic RPO at ≤ 24 h.
-- Connection count per Lambda container must stay small (one connection per warm container, API reserved concurrency 10); a connection storm is handled by switching to Neon's pooled endpoint ([RB-4](../runbooks/RB-4-api-errors-latency.md)).
+- Connection count per Lambda container must stay small (one connection per warm container, API reserved concurrency 10); a connection storm is handled by switching to Neon's pooled endpoint (RB-4).
 
 ## Revisit when
 

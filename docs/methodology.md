@@ -119,7 +119,7 @@ Stopwatch shows EWT only for stop-hours whose median scheduled headway is **12 m
 
 **Coverage = observed trips ÷ scheduled trips** for a service day. A trip is *observed* if we inferred at least one served-stop arrival for it. Trips that appear in the feed only as a list of skipped stops, or only as canceled, do not count as observed.
 
-- Coverage is shown wherever metrics are shown. Below **80%**, metrics for that day are labelled *low confidence*, and the daily publish is held back for a manual check ([RB-3](runbooks/RB-3-rollup-failed.md)).
+- Coverage is shown wherever metrics are shown. Below **80%**, metrics for that day are labelled *low confidence*, and the daily publish is held back for a manual check (RB-3).
 - Canceled trips are reported separately on the coverage page, so a day with many cancellations can be told apart from a day when our collector was down.
 - Coverage can be low for reasons on our side (a collector outage) or the MBTA's (a feed outage, trips running without predictions). The [data-health page](api.md#health) lists gaps.
 
@@ -153,4 +153,4 @@ If the error turns out larger than the target, we will say so here and adjust th
 
 ## Questions and corrections
 
-If a number looks wrong, open an issue with the route, stop, day and hour (the "data-quality report" issue template), or see [CONTRIBUTING.md](../CONTRIBUTING.md). Corrections to published data are listed in the [changelog](../CHANGELOG.md).
+If a number looks wrong, open a GitHub issue with the route, stop, day and hour.

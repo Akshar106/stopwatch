@@ -74,7 +74,7 @@ flowchart LR
 - **$0 when idle:** no always-on servers, no NAT, no RDS. The per-minute path never touches Postgres, so the free-tier database can sleep.
 - **Trustworthy publishing:** a data-quality gate runs before each atomic manifest swap, and rollback is one command.
 
-Design docs: [architecture](docs/04-architecture.md) · [security & reliability](docs/05-security-reliability.md) · [testing & operations](docs/06-quality-operations.md) · [interface contracts](docs/contracts.md) · [ADRs](docs/adr/README.md) · [runbooks](docs/runbooks/README.md)
+Design docs: [architecture](docs/04-architecture.md) · [security & reliability](docs/05-security-reliability.md) · [testing & operations](docs/06-quality-operations.md) · [interface contracts](docs/contracts.md) · [ADRs](docs/adr/README.md)
 
 ## Run it locally
 
@@ -129,12 +129,11 @@ Everything is Terraform under [`infra/`](infra/). A GitHub Actions pipeline buil
 backend/    Python 3.13: core (pure), platform adapters, ingest, rollups, API, jobs, tests
 frontend/   React + TypeScript + Vite app, Vitest + Playwright
 infra/      Terraform: bootstrap, modules, staging/prod envs
-docs/       Planning (01–08), contracts, ADRs, runbooks, methodology, privacy, feed notes
-research/   Job-market analysis data and scripts that motivated the project
+docs/       Product spec, design, contracts, ADRs, methodology, privacy, feed notes
 evals/      Ask Stopwatch eval set and cost-capped runner
 scripts/    Lambda packaging, fixture recording, backups, dev helpers
 ```
 
-How this was built, and what was verified by hand: [docs/ai-usage.md](docs/ai-usage.md). Planning docs, from market research through portfolio kit: [01](docs/01-market-research.md) · [02](docs/02-concept-selection.md) · [03](docs/03-product-spec.md) · [07 roadmap](docs/07-repo-and-roadmap.md) · [08 portfolio kit](docs/08-portfolio-kit.md).
+Built with AI coding assistance. Every result above was checked independently: by tests, by comparison with live MBTA data and LAMP, or by hand.
 
 License: [MIT](LICENSE).

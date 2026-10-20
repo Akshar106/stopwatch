@@ -1,6 +1,6 @@
 # Alerting and dashboards (docs/06 §8-9), sized to CloudWatch's always-free tier:
 # 10 alarms, 3 dashboards and the 10 custom metrics the app emits. Everything pages one SNS topic,
-# which emails the operator. Each alarm description carries its severity and runbook link.
+# which emails the operator. Each alarm description carries its severity and a one-line summary.
 
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
@@ -16,7 +16,7 @@ locals {
   metric_alarms = merge(
     {
       IngestStale = {
-        severity   = "SEV-2", runbook = "RB-1"
+        severity   = "SEV-2"
         summary    = "No successful ingest tick in 5 consecutive minutes; observations are being lost."
         namespace  = var.metric_namespace, metric = "IngestSuccess", dimensions = var.metric_dimensions
         statistic  = "Sum", period = 60, evaluation_periods = 5, datapoints = 5
@@ -25,7 +25,7 @@ locals {
         missing = var.ingest_enabled ? "breaching" : "notBreaching"
       }
       FeedStale = {
-        severity   = "SEV-3", runbook = "RB-1"
+        severity   = "SEV-3"
         summary    = "MBTA feed header older than 300 s for 10 minutes (usually upstream)."
         namespace  = var.metric_namespace, metric = "FeedAgeSeconds", dimensions = var.metric_dimensions
         statistic  = "Maximum", period = 60, evaluation_periods = 10, datapoints = 10
@@ -34,7 +34,7 @@ locals {
       # The rollup runs at 04:15 ET. 25 hourly periods without a success means the previous
       # success has aged out of the window by ~06:00 ET: "not published by 06:00".
       RollupLate = {
-        severity   = "SEV-3", runbook = "RB-3"
+        severity   = "SEV-3"
         summary    = "No successful daily rollup in the last 25 h (due by 06:00 ET)."
         namespace  = var.metric_namespace, metric = "RollupSuccess", dimensions = var.metric_dimensions
         statistic  = "Sum", period = 3600, evaluation_periods = 25, datapoints = 25
@@ -42,28 +42,28 @@ locals {
       }
       # One datapoint per day; "ignore" keeps the alarm in ALARM until the next rollup reports.
       RollupLowCoverage = {
-        severity   = "SEV-3", runbook = "RB-3"
+        severity   = "SEV-3"
         summary    = "Daily rollup coverage below 80% (quality gate keeps the previous build live)."
         namespace  = var.metric_namespace, metric = "RollupCoveragePct", dimensions = var.metric_dimensions
         statistic  = "Minimum", period = 3600, evaluation_periods = 1, datapoints = 1
         comparison = "LessThanThreshold", threshold = 80, missing = "ignore"
       }
       ApiLatencyP95 = {
-        severity   = "SEV-3", runbook = "RB-4"
+        severity   = "SEV-3"
         summary    = "API p95 latency above 1 s for 15 minutes."
         namespace  = "AWS/ApiGateway", metric = "Latency", dimensions = { ApiId = var.api_id }
         statistic  = "p95", period = 300, evaluation_periods = 3, datapoints = 3
         comparison = "GreaterThanThreshold", threshold = 1000, missing = "notBreaching"
       }
       ApiThrottles = {
-        severity   = "SEV-3", runbook = "RB-5"
+        severity   = "SEV-3"
         summary    = "api Lambda throttled (reserved concurrency exhausted) within 5 minutes."
         namespace  = "AWS/Lambda", metric = "Throttles", dimensions = { FunctionName = var.function_names["api"] }
         statistic  = "Sum", period = 300, evaluation_periods = 1, datapoints = 1
         comparison = "GreaterThanThreshold", threshold = 0, missing = "notBreaching"
       }
       AuthFailureSpike = {
-        severity   = "SEV-3", runbook = "RB-6"
+        severity   = "SEV-3"
         summary    = "More than 50 authentication failures in 10 minutes."
         namespace  = var.metric_namespace, metric = "AuthFailures", dimensions = var.metric_dimensions
         statistic  = "Sum", period = 600, evaluation_periods = 1, datapoints = 1
@@ -72,7 +72,7 @@ locals {
     },
     var.notify_dlq_name == null ? {} : {
       NotifyDLQ = {
-        severity   = "SEV-3", runbook = "RB-1"
+        severity   = "SEV-3"
         summary    = "Alert notifications failed after retries and are waiting in the DLQ."
         namespace  = "AWS/SQS", metric = "ApproximateNumberOfMessagesVisible", dimensions = { QueueName = var.notify_dlq_name }
         statistic  = "Maximum", period = 300, evaluation_periods = 1, datapoints = 1
@@ -84,9 +84,9 @@ locals {
   percentile_stat = { for k, a in local.metric_alarms : k => can(regex("^p\\d", a.statistic)) }
 
   describe = { for k, a in merge(local.metric_alarms, {
-    IngestErrorRate = { severity = "SEV-3", runbook = "RB-1", summary = "ingest-tick errors above 20% of invocations over 15 minutes (see also RB-2 for parse errors)." }
-    Api5xx          = { severity = "SEV-2", runbook = "RB-4", summary = "API 5xx above 5% of at least 20 requests in 5 minutes." }
-  }) : k => "${a.severity} | Runbook: ${var.runbook_base_url}/${a.runbook}.md | ${a.summary}" }
+    IngestErrorRate = { severity = "SEV-3", summary = "ingest-tick errors above 20% of invocations over 15 minutes." }
+    Api5xx          = { severity = "SEV-2", summary = "API 5xx above 5% of at least 20 requests in 5 minutes." }
+  }) : k => "${a.severity} | ${a.summary}" }
 }
 
 # --- Notification topic -------------------------------------------------------------------------
@@ -268,7 +268,7 @@ locals {
   pipeline_widgets = concat(
     [{
       type       = "text", x = 0, y = 0, width = 24, height = 2
-      properties = { markdown = "## ${var.name_prefix} pipeline\nFreshness SLO: 99% of minutes have a successful tick. Runbooks: [RB-1 ingest](${var.runbook_base_url}/RB-1.md) · [RB-2 parse errors](${var.runbook_base_url}/RB-2.md) · [RB-3 rollup](${var.runbook_base_url}/RB-3.md)" }
+      properties = { markdown = "## ${var.name_prefix} pipeline\nFreshness SLO: 99% of minutes have a successful tick." }
     }],
     [
       merge(local.ts, { x = 0, y = 2, properties = { title = "Successful ticks / min", region = local.region, stat = "Sum", period = 60, view = "timeSeries", metrics = [local.app_metric["IngestSuccess"]] } }),

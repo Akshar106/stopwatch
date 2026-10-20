@@ -44,7 +44,7 @@ So the data a rider needs exists, but it is gone within about a minute unless so
 4. **Get alerted** *(should)*. Opt in to a push notification when the next bus in your window is predicted to be N+ minutes late or is canceled.
 5. **Ask in plain English** *(should)*. "Which is more reliable at 8 am, the 1 or the CT1?" → an answer built only from computed data, shown with its source numbers and a chart.
 6. **Check data quality.** A public page shows feed freshness, % of scheduled trips observed per day, known gaps and incidents, and the methodology.
-7. **Operate** (operator). Receive an alert → follow the runbook → fix → write a postmortem.
+7. **Operate** (operator). Receive an alert → follow the runbook → fix.
 
 ## 4. User stories (MVP) with acceptance criteria
 
@@ -61,7 +61,7 @@ So the data a rider needs exists, but it is gone within about a minute unless so
 | US-9 | As a signed-in rider, I see a personal summary per commute. | Shows typical delay and worst case for the saved window and the trend vs the previous 4 weeks; computed from public data in the browser. |
 | US-10 | As a user, I can export or delete my account. | Export returns JSON of everything stored about me; deletion removes my personal data immediately (cascade) and leaves only a pseudonymous audit record. |
 | US-11 | As anyone, I can see whether the data is fresh and complete. | The health page shows last successful ingest time, today's coverage % and the last 30 days of gaps; a banner appears site-wide if data is > 15 min stale. |
-| US-12 | As the operator, I am alerted when ingestion stops. | An alarm fires within 5 min of the last successful tick; the email links to the runbook. |
+| US-12 | As the operator, I am alerted when ingestion stops. | An alarm fires within 5 min of the last successful tick; the email names the alarm and its severity. |
 
 *Should-tier stories (alerts, Ask, a second agency, API keys) are specified in [04-architecture.md](04-architecture.md) and will be scheduled in the roadmap.*
 
@@ -84,7 +84,7 @@ These are written down up front because they're where a transit analysis can qui
 | Area | Metric | Target |
 |---|---|---|
 | Product | Riders who saved a commute | ≥ 15 real (non-demo) users within 8 weeks of launch |
-| Product | Qualitative feedback | ≥ 5 riders interviewed or surveyed; changes logged in the changelog |
+| Product | Qualitative feedback | ≥ 5 riders interviewed or surveyed |
 | Data quality | Daily coverage of scheduled trips (bus + subway) | ≥ 95% median |
 | Data quality | Arrival-inference error vs MBTA LAMP (subway) | median absolute error ≤ 45 s, p90 ≤ 120 s, published |
 | Reliability | Ingestion freshness SLO | ≥ 99% of minutes per 30 days have a successful ingest |

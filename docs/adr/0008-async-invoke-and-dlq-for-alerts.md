@@ -2,7 +2,7 @@
 
 - **Status:** Accepted, 2026-10-18 (applies to the *should*-tier Web Push alerts)
 - **Deciders:** project author
-- **Related:** [04 §9](../04-architecture.md#9-background-jobs), [contracts §5](../contracts.md#5-alerts-should), [06 §9](../06-quality-operations.md#9-alerts), [RB-1](../runbooks/RB-1-ingestion-stale.md)
+- **Related:** [04 §9](../04-architecture.md#9-background-jobs), [contracts §5](../contracts.md#5-alerts-should), [06 §9](../06-quality-operations.md#9-alerts), RB-1
 
 ## Context
 
@@ -44,7 +44,7 @@ The obvious design is a queue between evaluation and delivery: SQS with a Lambda
 - **Less buffering under burst:** Lambda's internal async queue, `notify` reserved concurrency 2 and the 2-retry policy are the only smoothing. Fine at today's scale, not for thousands of simultaneous matches.
 - Async invoke payloads are size-limited, so a very large candidate list must be split into several invokes.
 - Events can sit in Lambda's async queue during throttling; the 2-minute delivery target can be missed without any error.
-- `NotifyDLQ` currently routes to [RB-1](../runbooks/RB-1-ingestion-stale.md) (the producer side), which covers the first checks; a dedicated alerts runbook is needed once the feature ships.
+- `NotifyDLQ` currently routes to RB-1 (the producer side), which covers the first checks; a dedicated alerts runbook is needed once the feature ships.
 
 ## Revisit when
 
