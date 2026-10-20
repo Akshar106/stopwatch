@@ -1,7 +1,8 @@
-# Reviewed false positives (gitleaks generic-api-key), fingerprints from the first CI run on GitHub:
+# Known false positives (gitleaks generic-api-key). Fingerprints include the commit hash,
+# so they need updating if history is rewritten.
 # .env.example: empty ANTHROPIC_API_KEY= matched across the newline into ASK_MONTHLY_CAP_USD.
-eeab57e9b861430eb61c4a85e1a1d7e013835ed6:.env.example:generic-api-key:34
-# docs/api.md: example Idempotency-Key UUID in an HTTP request sample.
-64d31a4d625b15192c338c0d0dee14a33240cb54:docs/api.md:generic-api-key:311
+e26a5a73026ef81fd4303e5acbcdfc89c7027442:.env.example:generic-api-key:34
+# docs/api.md: example Idempotency-Key in an HTTP request sample.
+16341a1b180b393c49fe36f0421b5e5c0df679f3:docs/api.md:generic-api-key:311
 # Test factory: fake Web Push subscription auth value.
-7a55806a7e6e8abc115d4faea07866604cae2be8:backend/tests/api/factories.py:generic-api-key:205
+75410b3c645633090095018b7099ac806594ee4a:backend/tests/api/factories.py:generic-api-key:205
